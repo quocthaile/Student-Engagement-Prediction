@@ -1,4 +1,43 @@
-#!/usr/bin/env python3
+"""
+Phase 1: Exploratory Data Analysis (EDA)
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+import time
+import csv
+import json
+import sqlite3
+from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+from typing import *
+import numpy as np
+
+
+def now_text() -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+def log(message: str) -> None:
+    print(f"[{now_text()}] {message}")
+
+def resolve_path_arg(path_value: Path, project_root: Path, default_base: Path) -> Path:
+    if path_value.is_absolute():
+        return path_value.resolve()
+    if path_value.parent == Path("."):
+        return (default_base / path_value).resolve()
+    return (project_root / path_value).resolve()
+
+def run_command(command: List[str], cwd: Path, label: str) -> None:
+    log(f"Running {label}")
+    proc = subprocess.run(command, cwd=str(cwd), check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"{label} failed with exit code {proc.returncode}")
+
 """
 Phase 1B: EDA and Data Cleaning for Combined Metrics.
 
@@ -20,22 +59,14 @@ Aligned with data preparation workflow:
    - Create derived features
    - Feature scaling if needed
 
-Outputs:
-- results/phase1b_eda_report.txt
-- results/combined_user_metrics_clean.csv
-- results/engagement_events_normalized.csv (optional)
+Outputs (all written to experiment/results/):
+- phase1_eda_report.txt           – descriptive statistics, outlier and quality report
+- combined_user_metrics_clean.csv – rows after missing/invalid removal
+- engagement_events_normalized.csv – min-max normalised engagement scores
 """
 
-from __future__ import annotations
 
-import argparse
-import csv
-import time
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 
 
 @dataclass
@@ -51,12 +82,8 @@ class Phase1bConfig:
     max_rows: Optional[int] = None
 
 
-def now_text() -> str:
-    return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def log(message: str) -> None:
-    print(f"[{now_text()}] {message}")
 
 
 def safe_float(value) -> Optional[float]:
@@ -391,143 +418,129 @@ def write_report(
                 f.write(f"ℹ️  {col}: {pct:.2f}% outliers detected (acceptable)\n")
 
 
+def run_eda_and_cleaning(
+    combined_csv: Path,
+    output_dir: Path,
+    missing_threshold: float = 0.3,
+    outlier_iqr_multiplier: float = 1.5,
+    log_every: int = 200000,
+    max_rows: Optional[int] = None,
+) -> None:
+    """Run full EDA + cleaning pipeline and write all outputs to output_dir."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_report = output_dir / "phase1_eda_report.txt"
+    output_clean_csv = output_dir / "combined_user_metrics_clean.csv"
+    output_norm_csv = output_dir / "engagement_events_normalized.csv"
+
+    cfg = Phase1bConfig(
+        combined_csv=combined_csv,
+        output_dir=output_dir,
+        output_clean_csv=output_clean_csv,
+        output_report_txt=output_report,
+        output_normalization_csv=output_norm_csv,
+        missing_threshold=missing_threshold,
+        outlier_iqr_multiplier=outlier_iqr_multiplier,
+        log_every=log_every,
+        max_rows=max_rows,
+    )
+
+    started = time.time()
+
+    if not cfg.combined_csv.exists():
+        raise FileNotFoundError(f"Input file not found: {cfg.combined_csv}")
+
+    log(f"Loading data from: {cfg.combined_csv}")
+    rows, columns = load_combined_csv(cfg.combined_csv, cfg.max_rows)
+    log(f"Loaded {len(rows):,} rows, {len(columns)} columns")
+
+    log("Computing descriptive statistics (before cleaning)...")
+    stats_before = compute_descriptive_stats(rows)
+
+    log("Computing normalization parameters...")
+    normalization = normalize_engagement_events(rows)
+
+    log("Detecting outliers (IQR method)...")
+    numeric_cols = [
+        "num_courses", "problem_total", "problem_accuracy", "avg_attempts",
+        "avg_score", "video_sessions", "video_count", "segment_count",
+        "watched_seconds", "watched_hours", "avg_speed",
+        "reply_count", "comment_count", "forum_total", "engagement_events",
+    ]
+    outlier_detection: Dict[str, Tuple[int, float, float, float]] = {}
+    for col in numeric_cols:
+        result = detect_outliers_iqr(rows, col, cfg.outlier_iqr_multiplier)
+        outlier_detection[col] = result
+
+    log("Cleaning data...")
+    cleaned_rows, cleaning_stats = clean_rows(rows, columns, normalization, cfg.missing_threshold)
+    log(f"Cleaned: {cleaning_stats['kept']:,} rows kept, "
+        f"{cleaning_stats['removed_too_many_missing']:,} removed (missing), "
+        f"{cleaning_stats['removed_invalid']:,} removed (invalid)")
+
+    log("Computing descriptive statistics (after cleaning)...")
+    stats_after = compute_descriptive_stats(cleaned_rows)
+
+    log(f"Writing clean CSV to: {cfg.output_clean_csv}")
+    write_clean_csv(cleaned_rows, columns, cfg.output_clean_csv)
+
+    log(f"Writing normalized engagement CSV to: {cfg.output_normalization_csv}")
+    write_normalized_csv(cleaned_rows, cfg.output_normalization_csv, normalization)
+
+    elapsed = time.time() - started
+    log(f"Writing EDA report to: {cfg.output_report_txt}")
+    write_report(
+        output_path=cfg.output_report_txt,
+        original_rows=len(rows),
+        cleaned_rows=len(cleaned_rows),
+        stats_before=stats_before,
+        stats_after=stats_after,
+        normalization=normalization,
+        cleaning_stats=cleaning_stats,
+        outlier_detection=outlier_detection,
+        elapsed=elapsed,
+    )
+    log(f"EDA complete. Report saved to: {cfg.output_report_txt}")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Phase 1B: EDA and data cleaning for combined metrics."
-    )
-    parser.add_argument(
-        "--combined-csv",
-        type=Path,
-        default=Path("results/combined_user_metrics.csv"),
-        help="Input combined metrics CSV",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("results"),
-        help="Output directory for cleaned data and report",
-    )
-    parser.add_argument(
-        "--missing-threshold",
-        type=float,
-        default=0.3,
-        help="Remove rows with missing ratio > threshold (default: 0.3)",
-    )
-    parser.add_argument(
-        "--outlier-iqr-multiplier",
-        type=float,
-        default=1.5,
-        help="IQR multiplier for outlier detection (default: 1.5)",
-    )
-    parser.add_argument(
-        "--max-rows",
-        type=int,
-        default=None,
-        help="Optional cap for testing",
-    )
-    parser.add_argument(
-        "--log-every",
-        type=int,
-        default=100000,
-        help="Progress log interval",
-    )
+    parser = argparse.ArgumentParser(description="Phase 1: Exploratory Data Analysis (EDA).")
+    # Output directory defaults to experiment/results/ (sibling of this script)
+    default_results = Path(__file__).resolve().parent / "results"
+    parser.add_argument("--results-dir", type=Path, default=default_results)
+    parser.add_argument("--combined-input", type=Path, default=Path("combined_user_metrics.csv"))
+    parser.add_argument("--missing-threshold", type=float, default=0.3)
+    parser.add_argument("--outlier-iqr-multiplier", type=float, default=1.5)
+    parser.add_argument("--top-users", type=int, default=100)
+    parser.add_argument("--min-school-size", type=int, default=20)
+    parser.add_argument("--top-schools", type=int, default=30)
+    parser.add_argument("--log-every", type=int, default=200000)
+    parser.add_argument("--max-rows", type=int, default=None)
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
+    project_root = Path(__file__).resolve().parents[1]
+    # results_dir resolves to experiment/results/ by default
+    results_dir = resolve_path_arg(args.results_dir, project_root, project_root)
+    combined_csv = resolve_path_arg(args.combined_input, project_root, results_dir)
 
-    combined_csv = args.combined_csv.resolve()
-    output_dir = args.output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    cfg = Phase1bConfig(
-        combined_csv=combined_csv,
-        output_dir=output_dir,
-        output_clean_csv=output_dir / "combined_user_metrics_clean.csv",
-        output_report_txt=output_dir / "phase1b_eda_report.txt",
-        output_normalization_csv=output_dir / "engagement_events_normalized.csv",
-        missing_threshold=args.missing_threshold,
-        outlier_iqr_multiplier=args.outlier_iqr_multiplier,
-        max_rows=args.max_rows,
-    )
-
-    if not cfg.combined_csv.exists():
-        log(f"FAILED: Combined CSV not found: {cfg.combined_csv}")
-        return 1
-
-    started = time.time()
     try:
-        log("Starting Phase 1B: EDA and Data Cleaning")
+        started = time.time()
+        log("Starting Phase 1: Exploratory Data Analysis")
+        log(f"Output directory: {results_dir}")
 
-        log("Step 1/6: Loading combined metrics")
-        rows, columns = load_combined_csv(cfg.combined_csv, cfg.max_rows)
-        original_count = len(rows)
-        log(f"Loaded {original_count:,} rows with {len(columns)} columns")
-
-        log("Step 2/6: Computing descriptive statistics (before cleaning)")
-        stats_before = compute_descriptive_stats(rows)
-
-        log("Step 3/6: Computing normalization parameters for engagement_events")
-        normalization = normalize_engagement_events(rows)
-        log(
-            f"Engagement events range: [{normalization['min']:.2f}, {normalization['max']:.2f}], "
-            f"mean={normalization['mean']:.2f}, std={normalization['std']:.2f}"
+        run_eda_and_cleaning(
+            combined_csv=combined_csv,
+            output_dir=results_dir,
+            missing_threshold=args.missing_threshold,
+            outlier_iqr_multiplier=args.outlier_iqr_multiplier,
+            log_every=max(1, args.log_every),
+            max_rows=args.max_rows,
         )
 
-        log("Step 4/6: Detecting outliers")
-        numeric_cols = [
-            "num_courses",
-            "problem_total",
-            "problem_accuracy",
-            "avg_attempts",
-            "avg_score",
-            "video_sessions",
-            "video_count",
-            "segment_count",
-            "watched_seconds",
-            "watched_hours",
-            "avg_speed",
-            "reply_count",
-            "comment_count",
-            "forum_total",
-            "engagement_events",
-        ]
-        outlier_detection: Dict[str, Tuple[int, float, float, float]] = {}
-        for col in numeric_cols:
-            count, pct, lower, upper = detect_outliers_iqr(rows, col, cfg.outlier_iqr_multiplier)
-            outlier_detection[col] = (count, pct, lower, upper)
-
-        log("Step 5/6: Cleaning rows")
-        cleaned_rows, cleaning_stats = clean_rows(rows, columns, normalization, cfg.missing_threshold)
-        log(
-            f"Cleaning complete: kept {cleaning_stats['kept']:,}/{original_count:,} rows "
-            f"({cleaning_stats['kept']/original_count*100:.1f}%)"
-        )
-
-        log("Step 6/6: Computing statistics after cleaning and writing outputs")
-        stats_after = compute_descriptive_stats(cleaned_rows)
-
-        write_clean_csv(cleaned_rows, columns, cfg.output_clean_csv)
-        log(f"Cleaned CSV: {cfg.output_clean_csv}")
-
-        write_normalized_csv(cleaned_rows, cfg.output_normalization_csv, normalization)
-        log(f"Normalized engagement events: {cfg.output_normalization_csv}")
-
-        write_report(
-            cfg.output_report_txt,
-            original_count,
-            len(cleaned_rows),
-            stats_before,
-            stats_after,
-            normalization,
-            cleaning_stats,
-            outlier_detection,
-            time.time() - started,
-        )
-        log(f"EDA Report: {cfg.output_report_txt}")
-
-        log(f"Phase 1B completed in {time.time() - started:.2f}s")
+        log(f"Phase 1 completed in {time.time() - started:.2f}s")
         return 0
     except Exception as exc:
         log(f"FAILED: {exc}")

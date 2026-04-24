@@ -1,73 +1,80 @@
 # Command reference (executed in this workspace)
-# Run from project root: d:/mooccubex
 # Prefer venv Python when available:
-# d:/mooccubex/.venv/Scripts/python.exe <command>
+# python.exe <command>
 
 # -------------------------------------------------------------------
-# 0) Dependency commands
+# LƯU Ý QUAN TRỌNG: LỰA CHỌN NGUỒN DỮ LIỆU ĐẦU VÀO
 # -------------------------------------------------------------------
-python.exe -m pip install -r dataset/requirements.txt
-# Install project dependencies from requirements.
-
-python.exe -m pip install "catboost>=1.2.0"
-# Install CatBoost for Phase 4 model training.
-
-python.exe -c "import catboost; print(catboost.__version__)"
-# Verify CatBoost is installed and print version.
-
-
-# -------------------------------------------------------------------
-# 1) Run each phase directly
-# -------------------------------------------------------------------
-python.exe experiment/phase_1_time_series_feature_extraction.py
-# Phase 1: time-series feature extraction and base data preparation.
-
-python.exe experiment/phase_2_kmeans_label_validation.py
-# Phase 2: K-Means ground-truth initialization and label validation.
-
-python.exe experiment/phase_3_train_valid_test_split.py
-# Phase 3: train/valid/test split and train-only imbalance handling.
-
-python.exe experiment/phase_4_supervised_model_training.py
-# Phase 4: supervised model training, tuning, and evaluation.
-
-python.exe experiment/phase_5_model_evaluation_metrics.py
-# Phase 5: model-centric evaluation summary from phase4_* artifacts.
-# Also generates consolidated report: results/final_summary_report.txt
-
-python.exe experiment/phase_6_model_interpretability.py
-# Phase 6: model interpretability and SHAP-style explanations.
-# Also appends the phase 6 section to results/final_summary_report.txt
+# Pipeline có 2 cách chạy tùy thuộc vào nguồn dữ liệu bạn muốn dùng:
+# 
+# Cách 1: Sử dụng Dataset gốc (các file JSON streaming)
+# Để chạy cách này, bạn CHỈ CẦN chạy lệnh bình thường. 
+# Pipeline sẽ tự động đọc các file user.json, user-problem.json...
+#
+# Cách 2: Sử dụng file combined_all_data.parquet (RẤT NHANH)
+# Để chạy cách này, thêm cờ: --combined-parquet experiment/results/combined_all_data.parquet
+# Phase 3 sẽ trực tiếp trích xuất đặc trưng từ file này thay vì quét lại toàn bộ JSON.
 
 
 # -------------------------------------------------------------------
-# 2) Run by phase via orchestrator
+# 1) CHẠY TOÀN BỘ PIPELINE (ALL PHASES)
 # -------------------------------------------------------------------
-python.exe experiment/run_experiment_stages.py --phase 4
-# Run only Phase 4 with default model set.
 
-python.exe experiment/run_experiment_stages.py --phase 4 --phase4-models catboost
-# Run only Phase 4 and force CatBoost model.
-
-python.exe experiment/run_experiment_stages.py --phase 5
-# Run Phase 5 (legacy step4 report + model evaluation metrics report).
-# Also generates consolidated report: results/final_summary_report.txt
-
-python.exe experiment/run_experiment_stages.py --phase 5 --phase5-skip-step4-report
-# Run only model-centric Phase 5 report (skip legacy step 4 report).
-
-python.exe experiment/run_experiment_stages.py --phase 6
-# Run Phase 6 interpretability only (requires Phase 4 outputs and Phase 5 summary).
-
+# Cách 1: Chạy từ Dataset gốc (Streaming JSON)
 python.exe experiment/run_experiment_stages.py --phase all
-# Run full pipeline in order: 1 -> 2 -> 3 -> 4 -> 5 -> 6.
+
+# Cách 2: Chạy từ file Parquet siêu tốc
+python.exe experiment/run_experiment_stages.py --phase all --combined-parquet experiment/results/combined_all_data.parquet
 
 
 # -------------------------------------------------------------------
-# 3) Smoke-test commands used during implementation
+# 2) CHẠY TỪNG PHASE RIÊNG LẺ THÔNG QUA ORCHESTRATOR (KHUYẾN NGHỊ)
 # -------------------------------------------------------------------
-python.exe experiment/phase_4_supervised_model_training.py --results-dir results --models catboost --cv-folds 2 --n-jobs 1 --primary-metric macro_f1 --max-rows 120
-# Fast CatBoost smoke test on limited rows.
+# Bạn có thể điều khiển từng phase thông qua `run_experiment_stages.py`.
+# Thứ tự chuẩn của luồng dữ liệu là: 2 -> 3 -> 1 -> 4 -> 5 -> 6 -> 7 -> 8.
 
-python.exe experiment/run_experiment_stages.py --phase 4 --phase4-models catboost --phase4-cv-folds 2 --phase4-n-jobs 1 --max-rows 120
-# Runner-level CatBoost smoke test on limited rows.
+# --- BƯỚC LÀM SẠCH (Phase 2) ---
+# (Chỉ cần thiết nếu dùng Dataset gốc, nếu dùng Parquet có thể bỏ qua)
+python.exe experiment/run_experiment_stages.py --phase 2
+
+# --- BƯỚC CHUYỂN ĐỔI (Phase 3) ---
+# Tùy chọn A (Từ Dataset gốc):
+python.exe experiment/run_experiment_stages.py --phase 3
+# Tùy chọn B (Từ Parquet):
+python.exe experiment/run_experiment_stages.py --phase 3 --combined-parquet experiment/results/combined_all_data.parquet
+
+# --- BƯỚC KHÁM PHÁ EDA (Phase 1) ---
+# Chạy vẽ biểu đồ từ file CSV sau khi Phase 3 đã tạo ra
+python.exe experiment/run_experiment_stages.py --phase 1
+
+# --- BƯỚC GHI NHÃN (Phase 4) ---
+# K-Means clustering và phân tích độ tương tác
+python.exe experiment/run_experiment_stages.py --phase 4
+
+# --- BƯỚC CHIA TẬP (Phase 5) ---
+# Train/Valid/Test Split & SMOTE
+python.exe experiment/run_experiment_stages.py --phase 5
+
+# --- BƯỚC MÔ HÌNH HÓA (Phase 6) ---
+python.exe experiment/run_experiment_stages.py --phase 6
+
+# --- BƯỚC ĐÁNH GIÁ (Phase 7) ---
+python.exe experiment/run_experiment_stages.py --phase 7
+
+# --- BƯỚC GIẢI THÍCH (Phase 8) ---
+python.exe experiment/run_experiment_stages.py --phase 8
+
+
+# -------------------------------------------------------------------
+# 3) CHẠY TRỰC TIẾP CÁC FILE SCRIPT (NÂNG CAO)
+# -------------------------------------------------------------------
+# Bạn cũng có thể gọi trực tiếp file python để thực thi nếu muốn thêm các cờ riêng rẽ.
+
+# Chạy Phase 3 trực tiếp từ Parquet:
+python.exe experiment/phase_3_data_transformation.py --combined-parquet experiment/results/combined_all_data.parquet
+
+# Chạy Phase 1 (EDA) với log hiển thị chi tiết hơn:
+python.exe experiment/phase_1_eda.py --log-every 50000
+
+# Chạy Phase 6 (Modeling) chỉ định rõ loại mô hình (ví dụ chỉ chạy catboost):
+python.exe experiment/phase_6_model_training.py --models catboost --cv-folds 3

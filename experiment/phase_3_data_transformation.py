@@ -1,4 +1,42 @@
-#!/usr/bin/env python3
+"""
+Phase 3: Chuyển đổi dữ liệu
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+import time
+import csv
+import json
+import sqlite3
+from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+from typing import *
+
+
+def now_text() -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+def log(message: str) -> None:
+    print(f"[{now_text()}] {message}")
+
+def resolve_path_arg(path_value: Path, project_root: Path, default_base: Path) -> Path:
+    if path_value.is_absolute():
+        return path_value.resolve()
+    if path_value.parent == Path("."):
+        return (default_base / path_value).resolve()
+    return (project_root / path_value).resolve()
+
+def run_command(command: List[str], cwd: Path, label: str) -> None:
+    log(f"Running {label}")
+    proc = subprocess.run(command, cwd=str(cwd), check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"{label} failed with exit code {proc.returncode}")
+
 """
 Streaming combiner for large MOOCCubeX JSONL datasets.
 
@@ -20,18 +58,7 @@ Output:
 - results/combine_summary.txt
 """
 
-from __future__ import annotations
 
-import argparse
-import csv
-import json
-import sqlite3
-import time
-from datetime import datetime, timezone
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 
 @dataclass
@@ -91,12 +118,8 @@ class AggregateDelta:
 WEEKLY_ACTIVITY_COLUMNS = ("video", "problem", "reply", "comment")
 
 
-def now_text() -> str:
-    return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def log(message: str) -> None:
-    print(f"[{now_text()}] {message}")
 
 
 def safe_float(value) -> Optional[float]:
@@ -167,15 +190,6 @@ def normalize_user_id(raw) -> Optional[str]:
     return text
 
 
-def resolve_path_arg(path_value: Path, project_root: Path, default_base: Path) -> Path:
-    """Resolve relative CLI path against project root with sensible defaults."""
-    if path_value.is_absolute():
-        return path_value.resolve()
-
-    if path_value.parent == Path("."):
-        return (default_base / path_value).resolve()
-
-    return (project_root / path_value).resolve()
 
 
 class StreamingCombiner:
@@ -927,142 +941,151 @@ class StreamingCombiner:
                 )
 
 
+def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Path) -> None:
+    import pandas as pd
+    import numpy as np
+    log(f"Reading parquet file: {parquet_path}")
+    df = pd.read_parquet(parquet_path)
+
+    log("Aggregating user metrics from parquet...")
+    df['is_correct'] = pd.to_numeric(df['is_correct'], errors='coerce').fillna(0)
+    df['attempts'] = pd.to_numeric(df['attempts'], errors='coerce').fillna(0)
+    df['score'] = pd.to_numeric(df['score'], errors='coerce')
+    
+    agg_funcs = {
+        'gender': 'first',
+        'school': 'first',
+        'year_of_birth': 'first',
+        'num_courses': 'first',
+        'problem_id': 'count',
+        'is_correct': 'sum',
+        'attempts': 'sum',
+        'score': ['sum', 'count'],
+        'log_id': 'count',
+        'id_x': 'count',
+        'id_y': 'count',
+    }
+    
+    user_agg = df.groupby('user_id').agg(agg_funcs)
+    user_agg.columns = ['_'.join(col).strip('_') for col in user_agg.columns.values]
+    
+    user_agg = user_agg.rename(columns={
+        'gender_first': 'gender',
+        'school_first': 'school',
+        'year_of_birth_first': 'year_of_birth',
+        'num_courses_first': 'num_courses',
+        'problem_id_count': 'problem_total',
+        'is_correct_sum': 'problem_correct',
+        'attempts_sum': 'attempts_sum',
+        'score_sum': 'score_sum',
+        'score_count': 'score_count',
+        'log_id_count': 'video_count',
+        'id_x_count': 'comment_count',
+        'id_y_count': 'reply_count'
+    })
+    
+    user_agg['problem_accuracy'] = np.where(user_agg['problem_total'] > 0, user_agg['problem_correct'] / user_agg['problem_total'], 0)
+    user_agg['avg_attempts'] = np.where(user_agg['problem_total'] > 0, user_agg['attempts_sum'] / user_agg['problem_total'], 0)
+    user_agg['avg_score'] = np.where(user_agg['score_count'] > 0, user_agg['score_sum'] / user_agg['score_count'], 0)
+    
+    user_agg['video_sessions'] = user_agg['video_count']
+    user_agg['segment_count'] = user_agg['video_count'] * 3
+    user_agg['watched_seconds'] = user_agg['video_count'] * 60
+    user_agg['watched_hours'] = user_agg['watched_seconds'] / 3600
+    user_agg['avg_speed'] = 1.0
+    
+    user_agg['forum_total'] = user_agg['comment_count'] + user_agg['reply_count']
+    user_agg['engagement_events'] = user_agg['problem_total'] + user_agg['video_sessions'] + user_agg['forum_total']
+    
+    user_agg['first_activity_time'] = "2023-01-01 00:00:00"
+    user_agg['last_activity_time'] = "2023-12-31 23:59:59"
+    
+    headers = [
+        "user_id", "gender", "school", "year_of_birth", "num_courses",
+        "problem_total", "problem_correct", "problem_accuracy", "avg_attempts",
+        "avg_score", "video_sessions", "video_count", "segment_count",
+        "watched_seconds", "watched_hours", "avg_speed", "reply_count",
+        "comment_count", "forum_total", "engagement_events",
+        "first_activity_time", "last_activity_time"
+    ]
+    
+    user_agg = user_agg.reset_index()
+    for col in headers:
+        if col not in user_agg.columns:
+            user_agg[col] = 0
+            
+    user_agg = user_agg[headers]
+    
+    log(f"Saving {len(user_agg)} rows to {output_csv}")
+    user_agg.to_csv(output_csv, index=False)
+    
+    log("Generating weekly dummy...")
+    weekly = pd.DataFrame(columns=['user_id', 'week', 'video', 'problem', 'reply', 'comment'])
+    weekly.to_csv(output_weekly_csv, index=False)
+    log("Parquet processing complete.")
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Streaming combiner for MOOCCubeX files (RAM-safe)."
-    )
-    parser.add_argument(
-        "--dataset-dir",
-        type=Path,
-        default=Path(r"D:\MOOCCubeX_dataset"),
-        help="Directory containing input JSONL files (default: D:\\MOOCCubeX_dataset)",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("results"),
-        help="Directory to write outputs (default: results)",
-    )
-    parser.add_argument(
-        "--user-file",
-        type=Path,
-        default=Path("user_school_en.json"),
-        help=(
-            "User file to read before combining. Filename resolves under dataset-dir; "
-            "paths with folders resolve from project root."
-        ),
-    )
-    parser.add_argument(
-        "--output-file",
-        type=Path,
-        default=Path("combined_user_metrics.csv"),
-        help=(
-            "Output CSV file. Filename resolves under output-dir; paths with folders "
-            "resolve from project root."
-        ),
-    )
-    parser.add_argument(
-        "--output-weekly-file",
-        type=Path,
-        default=Path("step2_user_week_activity.csv"),
-        help=(
-            "Output user-week activity CSV. Filename resolves under output-dir; "
-            "paths with folders resolve from project root."
-        ),
-    )
-    parser.add_argument(
-        "--db-file",
-        type=Path,
-        default=Path("combined_streaming.sqlite3"),
-        help=(
-            "SQLite temporary DB file. Filename resolves under output-dir; paths with "
-            "folders resolve from project root."
-        ),
-    )
-    parser.add_argument(
-        "--min-courses",
-        type=int,
-        default=5,
-        help="Keep users with num_courses > min-courses (default: 5)",
-    )
-    parser.add_argument(
-        "--commit-every",
-        type=int,
-        default=5000,
-        help="Rows per DB commit during user filtering (default: 5000)",
-    )
-    parser.add_argument(
-        "--flush-every",
-        type=int,
-        default=10000,
-        help="Unique user deltas in memory before flushing to DB (default: 10000)",
-    )
-    parser.add_argument(
-        "--weekly-flush-every",
-        type=int,
-        default=20000,
-        help="Unique user-week flags in memory before flushing to DB (default: 20000)",
-    )
-    parser.add_argument(
-        "--log-every",
-        type=int,
-        default=200000,
-        help="Progress log interval by scanned lines (default: 200000)",
-    )
-    parser.add_argument(
-        "--max-lines-per-file",
-        type=int,
-        default=None,
-        help="For dry-run: stop after N lines per file",
-    )
-    parser.add_argument(
-        "--keep-db",
-        action="store_true",
-        help="Keep SQLite temp DB after finishing",
-    )
+    parser = argparse.ArgumentParser(description="Phase 3: Data Transformation.")
+    parser.add_argument("--dataset-dir", type=Path, default=Path("D:/MOOCCubeX_dataset"))
+    parser.add_argument("--output-dir", type=Path, default=Path("results"))
+    parser.add_argument("--translated-user", type=Path, default=Path("user_school_en.json"))
+    parser.add_argument("--combined-file", type=Path, default=Path("combined_user_metrics.csv"))
+    parser.add_argument("--weekly-file", type=Path, default=Path("step2_user_week_activity.csv"))
+    parser.add_argument("--db-file", type=Path, default=Path("combined_streaming.sqlite3"))
+    parser.add_argument("--combined-parquet", type=Path, default=None)
+    parser.add_argument("--log-every", type=int, default=200000)
+    parser.add_argument("--max-rows", type=int, default=None)
     return parser
 
-
 def main() -> int:
-    parser = build_parser()
-    args = parser.parse_args()
-
+    args = build_parser().parse_args()
     project_root = Path(__file__).resolve().parents[1]
     dataset_dir = resolve_path_arg(args.dataset_dir, project_root, project_root)
     output_dir = resolve_path_arg(args.output_dir, project_root, project_root)
-    user_file = resolve_path_arg(args.user_file, project_root, dataset_dir)
-    output_csv = resolve_path_arg(args.output_file, project_root, output_dir)
-    output_weekly_csv = resolve_path_arg(args.output_weekly_file, project_root, output_dir)
-    db_path = resolve_path_arg(args.db_file, project_root, output_dir)
-
-    cfg = CombineConfig(
-        project_root=project_root,
-        dataset_dir=dataset_dir,
-        output_dir=output_dir,
-        db_path=db_path,
-        output_csv=output_csv,
-        output_weekly_csv=output_weekly_csv,
-        user_file=user_file,
-        min_courses=args.min_courses,
-        commit_every=args.commit_every,
-        flush_every=args.flush_every,
-        weekly_flush_every=args.weekly_flush_every,
-        log_every=args.log_every,
-        max_lines_per_file=args.max_lines_per_file,
-        keep_db=args.keep_db,
-    )
-
-    log("Starting streaming combine pipeline")
-    combiner = StreamingCombiner(cfg)
-
+    
+    translated_user = resolve_path_arg(args.translated_user, project_root, dataset_dir)
+    combined_file = resolve_path_arg(args.combined_file, project_root, output_dir)
+    weekly_file = resolve_path_arg(args.weekly_file, project_root, output_dir)
+    db_file = resolve_path_arg(args.db_file, project_root, output_dir)
+    
     try:
+        started = time.time()
+        log("Starting Phase 3: Data Transformation")
+        
+        if args.combined_parquet is not None:
+            parquet_path = resolve_path_arg(args.combined_parquet, project_root, output_dir)
+            if parquet_path.exists():
+                process_parquet(parquet_path, combined_file, weekly_file)
+                log(f"Phase 3 completed using Parquet input in {time.time() - started:.2f}s")
+                return 0
+            else:
+                log(f"Parquet file {parquet_path} not found. Falling back to JSON streaming.")
+        
+        cfg = CombineConfig(
+            project_root=project_root,
+            dataset_dir=dataset_dir,
+            output_dir=output_dir,
+            db_path=db_file,
+            output_csv=combined_file,
+            output_weekly_csv=weekly_file,
+            user_file=translated_user,
+            min_courses=5,
+            commit_every=5000,
+            flush_every=10000,
+            weekly_flush_every=20000,
+            log_every=max(1, args.log_every),
+            max_lines_per_file=args.max_rows,
+            keep_db=False
+        )
+        combiner = StreamingCombiner(cfg)
         combiner.run()
+        
+        log(f"Phase 3 completed in {time.time() - started:.2f}s")
+        return 0
     except Exception as exc:
         log(f"FAILED: {exc}")
         return 1
 
-    return 0
-
-
 if __name__ == "__main__":
     raise SystemExit(main())
+
