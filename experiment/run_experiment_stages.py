@@ -244,58 +244,35 @@ def run_phase_1(cfg: StageConfig) -> None:
     phase1_dir = cfg.results_dir / "phase1"
     phase1_dir.mkdir(parents=True, exist_ok=True)
     
-    # 1. Translate
-    phase_1_translate = cfg.experiment_dir / "phase_1_translate.py"
+    phase_1_prep = cfg.experiment_dir / "phase_1_data_preparation.py"
     translated_user = phase1_dir / "user_school_en.json"
-    cmd_trans = [
-        sys.executable, str(phase_1_translate),
+    combined_file = phase1_dir / "combined_user_metrics.csv"
+    weekly_file = phase1_dir / "step2_user_week_activity.csv"
+    
+    cmd = [
+        sys.executable, str(phase_1_prep),
         "--dataset-dir", str(cfg.dataset_dir),
         "--output-dir", str(phase1_dir),
         "--user-input", str(cfg.user_input),
         "--translated-user", str(translated_user),
         "--translate-summary", str(phase1_dir / "school_translate_summary.txt"),
-        "--log-every", str(cfg.log_every),
-    ]
-    if cfg.skip_translate or translated_user.exists():
-        log("Translation will be skipped as requested or output file already exists.")
-        cmd_trans.append("--skip-translate")
-    if cfg.max_rows is not None:
-        cmd_trans.extend(["--max-rows", str(cfg.max_rows)])
-    run_command(cmd_trans, cfg.project_root, "Phase 1.1 - Translate to English")
-
-    # 2. Combine
-    phase_1_combine = cfg.experiment_dir / "phase_1_combine.py"
-    combined_file = phase1_dir / "combined_user_metrics.csv"
-    weekly_file = phase1_dir / "step2_user_week_activity.csv"
-    cmd_comb = [
-        sys.executable, str(phase_1_combine),
-        "--dataset-dir", str(cfg.dataset_dir),
-        "--output-dir", str(phase1_dir),
-        "--translated-user", str(translated_user),
         "--combined-file", str(combined_file),
         "--weekly-file", str(weekly_file),
         "--db-file", str(phase1_dir / "combined_streaming.sqlite3"),
         "--log-every", str(cfg.log_every),
     ]
+    
+    if cfg.skip_translate or translated_user.exists():
+        log("Translation will be skipped as requested or output file already exists.")
+        cmd.append("--skip-translate")
+        
     if cfg.cutoff_week is not None:
-        cmd_comb.extend(["--cutoff-week", str(cfg.cutoff_week)])
+        cmd.extend(["--cutoff-week", str(cfg.cutoff_week)])
+        
     if cfg.max_rows is not None:
-        cmd_comb.extend(["--max-rows", str(cfg.max_rows)])
-    if not combined_file.exists():
-        run_command(cmd_comb, cfg.project_root, "Phase 1.2 - Combine Metrics")
-    else:
-        log(f"Phase 1.2 skipped. Output exists: {combined_file}")
-
-    # 3. EDA
-    phase_1_eda = cfg.experiment_dir / "phase_1_eda.py"
-    cmd_eda = [
-        sys.executable, str(phase_1_eda),
-        "--combined-input", str(combined_file),
-        "--output-dir", str(phase1_dir),
-    ]
-    if cfg.max_rows is not None:
-        cmd_eda.extend(["--max-rows", str(cfg.max_rows)])
-    run_command(cmd_eda, cfg.project_root, "Phase 1.3 - Exploratory Data Analysis")
+        cmd.extend(["--max-rows", str(cfg.max_rows)])
+        
+    run_command(cmd, cfg.project_root, "Phase 1 - Data Preparation (Translation, Combine, EDA)")
 
 
 def run_phase_2(cfg: StageConfig) -> None:
