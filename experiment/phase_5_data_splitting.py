@@ -43,6 +43,7 @@ class Phase5Config:
     labeled_csv: Path
     combined_csv: Path
     merge_combined: bool
+    evaluation_unit: str
     label_column: str
     split_strategy: str
     group_column: str
@@ -119,6 +120,14 @@ def parse_datetime_value(text: str, time_format: str) -> Optional[datetime]:
 def normalize_label(value: str) -> str:
     text = (value or "").strip()
     return text if text else "Unknown"
+
+
+def build_user_course_key(row: Dict[str, str]) -> str:
+    user_id = (row.get("user_id") or "").strip()
+    course_id = (row.get("course_id") or "").strip()
+    if not user_id or not course_id:
+        return ""
+    return f"{user_id}::{course_id}"
 
 
 def load_csv_rows(path: Path, max_rows: Optional[int], log_every: int) -> Tuple[List[Dict[str, str]], List[str]]:
@@ -765,6 +774,7 @@ def write_report(
 
         f.write("\nConfiguration:\n")
         f.write(f"- Split strategy               : {cfg.split_strategy}\n")
+        f.write(f"- Evaluation unit              : {cfg.evaluation_unit}\n")
         f.write(f"- Label column                 : {cfg.label_column}\n")
         f.write(f"- Group column                 : {cfg.group_column}\n")
         f.write(f"- Time column                  : {cfg.time_column}\n")
@@ -825,6 +835,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-merge-combined",
         action="store_true",
         help="Do not enrich labeled rows with extra columns from combined CSV",
+    )
+    parser.add_argument(
+        "--evaluation-unit",
+        type=str,
+        choices=["user", "user_course"],
+        default="user",
+        help="Unit of evaluation: per user or per (user, course)",
     )
 
     parser.add_argument("--label-column", type=str, default="StandardLabelKMeans")
@@ -892,6 +909,7 @@ def main() -> int:
         labeled_csv=labeled_csv,
         combined_csv=combined_csv,
         merge_combined=(not args.skip_merge_combined),
+        evaluation_unit=args.evaluation_unit,
         label_column=args.label_column,
         split_strategy=args.split_strategy,
         group_column=args.group_column,
@@ -922,6 +940,30 @@ def main() -> int:
         log("Starting Phase 5: split + imbalance handling")
 
         rows, base_columns = load_csv_rows(cfg.labeled_csv, cfg.max_rows, cfg.log_every)
+
+        if cfg.evaluation_unit == "user_course":
+            if "course_id" not in base_columns:
+                raise RuntimeError(
+                    "evaluation-unit=user_course requires column 'course_id' in labeled CSV"
+                )
+
+            non_empty_keys = 0
+            for row in rows:
+                row["user_course_key"] = build_user_course_key(row)
+                if row["user_course_key"]:
+                    non_empty_keys += 1
+
+            if "user_course_key" not in base_columns:
+                base_columns.append("user_course_key")
+
+            if non_empty_keys == 0:
+                raise RuntimeError(
+                    "evaluation-unit=user_course detected but no valid (user_id, course_id) pairs found"
+                )
+
+            if cfg.group_column == "user_id":
+                cfg.group_column = "user_course_key"
+                log("evaluation-unit=user_course: auto-switch group-column to user_course_key")
 
         merged_columns: List[str] = []
         if cfg.merge_combined:
@@ -1031,6 +1073,8 @@ def main() -> int:
                 "phase5_row_id",
                 "SplitSet",
                 "user_id",
+                "course_id",
+                "user_course_key",
                 "school",
                 cfg.label_column,
                 "EngagementLabel",

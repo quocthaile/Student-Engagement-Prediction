@@ -34,52 +34,52 @@ PHASE_HELP_TEXT = """
 Phase 1 - Data Cleaning
     Description     : Standardize school names (translate to English) and ensure metadata consistency.
     Input           : dataset/user.json
-    Output          : results/phase1/user_school_en.json, results/phase1/school_translate_summary.txt
+    Output          : <results-dir>/phase1/user_school_en.json, <results-dir>/phase1/school_translate_summary.txt
     Visual Goal     : Summary table of school name mappings before and after cleaning.
 
 Phase 2 - Data Transformation
     Description     : Aggregate data from event sources into user-level and user-week features.
-    Input           : results/phase1/user_school_en.json and event files in dataset-dir
-    Output          : results/phase2/combined_user_metrics.csv, results/phase2/step2_user_week_activity.csv
+    Input           : <results-dir>/phase1/user_school_en.json and event files in dataset-dir
+    Output          : <results-dir>/phase2/combined_user_metrics.csv, <results-dir>/phase2/step2_user_week_activity.csv
     Visual Goal     : Weekly activity trends and aggregated user-level variables.
 
 Phase 3 - Exploratory Data Analysis (EDA)
     Description     : Perform descriptive statistics on aggregated user metrics, detect data quality issues, and
                       generate an EDA report. (Performed after Transformation since raw event logs are not directly
                       analyzable; EDA operates on the aggregated combined_user_metrics.csv.)
-    Input           : results/phase2/combined_user_metrics.csv
-    Output          : results/phase3/phase3_eda_report.txt, results/phase3/combined_user_metrics_clean.csv
+    Input           : <results-dir>/phase2/combined_user_metrics.csv
+    Output          : <results-dir>/phase3/phase3_eda_report.txt, <results-dir>/phase3/combined_user_metrics_clean.csv
     Visual Goal     : Statistical tables, distribution plots, and anomaly indicators.
 
 Phase 4 - Data Labeling
     Description     : Create Low/Medium/High labels based on engagement scores and clustering, and evaluate label quality.
-    Input           : results/phase3/combined_user_metrics_clean.csv, results/phase2/step2_user_week_activity.csv
-    Output          : results/phase4/phase4_2_standard_labels_kmeans.csv and validation reports
+    Input           : <results-dir>/phase3/combined_user_metrics_clean.csv, <results-dir>/phase2/step2_user_week_activity.csv
+    Output          : <results-dir>/phase4/phase4_2_standard_labels_kmeans.csv and validation reports
     Visual Goal     : Cluster centers, label distribution, and a cross-tabulation matrix of labels vs. clusters.
 
 Phase 5 - Data Splitting
     Description     : Split data into train/valid/test sets using a specified strategy (e.g., stratified, temporal).
-    Input           : results/phase4/phase4_2_standard_labels_kmeans.csv, results/phase2/combined_user_metrics.csv
-    Output          : results/phase5/phase5_train_modeling.csv, results/phase5/phase5_valid.csv, results/phase5/phase5_test.csv
+    Input           : <results-dir>/phase4/phase4_2_standard_labels_kmeans.csv, <results-dir>/phase2/combined_user_metrics.csv
+    Output          : <results-dir>/phase5/phase5_train_modeling.csv, <results-dir>/phase5/phase5_valid.csv, <results-dir>/phase5/phase5_test.csv
     Visual Goal     : Comparison table of label distributions across the data splits.
 
 Phase 6 - Model Training
     Description     : Train multiple classification models and select the best one based on validation metrics.
-    Input           : results/phase5/phase5_train_modeling.csv, results/phase5/phase5_valid.csv, results/phase5/phase5_test.csv
+    Input           : <results-dir>/phase5/phase5_train_modeling.csv, <results-dir>/phase5/phase5_valid.csv, <results-dir>/phase5/phase5_test.csv
     Output          : phase6_model_comparison.csv/.png, phase6_confusion_matrix.csv/.png,
                     phase6_feature_importance.csv/.png, phase6_best_model.pkl
     Visual Goal     : Model comparison charts, confusion matrices, and feature importance plots.
 
 Phase 7 - Model Evaluation
     Description     : Summarize metrics for the best model, check against quality thresholds, and generate a final report.
-    Input           : Artifacts from Phase 6
+    Input           : Artifacts from Phase 6 in <results-dir>/phase6/
     Output          : phase7_model_selection_summary.csv, phase7_metric_checks.csv,
                     phase7_selected_model_metrics.png, phase7_class_metrics.png, final_summary_report.txt
     Visual Goal     : Comparison of metrics on validation/test sets and pass/fail status of quality checks.
 
 Phase 8 - Model Interpretability
     Description     : Analyze and interpret feature contributions at global, class-wise, and individual sample levels.
-    Input           : phase6_best_model.pkl, phase6_best_model_predictions.csv, phase5_test.csv
+    Input           : <results-dir>/phase6/phase6_best_model.pkl, <results-dir>/phase6/phase6_best_model_predictions.csv, <results-dir>/phase5/phase5_test.csv
     Output          : phase8_global_importance.csv/.png, phase8_classwise_importance.csv/.png,
                     phase8_local_contributions.csv/.png, phase8_interpretability_report.txt
     Visual Goal     : Top important features and local explanations for representative samples.
@@ -91,56 +91,56 @@ PHASE_BRIEF = {
         "name": "Data Cleaning",
         "description": "Standardize school names (translate to English) and ensure metadata consistency.",
         "input": "dataset/user.json",
-        "output": "results/phase1/user_school_en.json, results/phase1/school_translate_summary.txt",
+        "output": "<results-dir>/phase1/user_school_en.json, <results-dir>/phase1/school_translate_summary.txt",
         "visual_goal": "Summary table of school name mappings before and after cleaning.",
     },
     "2": {
         "name": "Data Transformation",
         "description": "Aggregate data from event sources into user-level and user-week features.",
-        "input": "results/phase1/user_school_en.json and event files in dataset-dir",
-        "output": "results/phase2/combined_user_metrics.csv, results/phase2/step2_user_week_activity.csv",
+        "input": "<results-dir>/phase1/user_school_en.json and event files in dataset-dir",
+        "output": "<results-dir>/phase2/combined_user_metrics.csv, <results-dir>/phase2/step2_user_week_activity.csv",
         "visual_goal": "Weekly activity trends and aggregated user-level variables.",
     },
     "3": {
         "name": "Exploratory Data Analysis (EDA)",
         "description": "Perform descriptive statistics on aggregated metrics, detect data quality issues, and generate an EDA report.",
-        "input": "results/phase2/combined_user_metrics.csv",
-        "output": "results/phase3/phase3_eda_report.txt, results/phase3/combined_user_metrics_clean.csv",
+        "input": "<results-dir>/phase2/combined_user_metrics.csv",
+        "output": "<results-dir>/phase3/phase3_eda_report.txt, <results-dir>/phase3/combined_user_metrics_clean.csv",
         "visual_goal": "Statistical tables, distribution plots, and anomaly indicators.",
     },
     "4": {
         "name": "Data Labeling",
         "description": "Create Low/Medium/High labels based on engagement scores and clustering, and evaluate label quality.",
-        "input": "results/phase3/combined_user_metrics_clean.csv, results/phase2/step2_user_week_activity.csv",
-        "output": "results/phase4/phase4_2_standard_labels_kmeans.csv and validation reports",
+        "input": "<results-dir>/phase3/combined_user_metrics_clean.csv, <results-dir>/phase2/step2_user_week_activity.csv",
+        "output": "<results-dir>/phase4/phase4_2_standard_labels_kmeans.csv and validation reports",
         "visual_goal": "Cluster centers, label distribution, and a cross-tabulation matrix of labels vs. clusters.",
     },
     "5": {
         "name": "Data Splitting",
         "description": "Split data into train/valid/test sets using a specified strategy (e.g., stratified, temporal).",
-        "input": "results/phase4/phase4_2_standard_labels_kmeans.csv, results/phase2/combined_user_metrics.csv",
-        "output": "results/phase5/phase5_train_modeling.csv, results/phase5/phase5_valid.csv, results/phase5/phase5_test.csv",
+        "input": "<results-dir>/phase4/phase4_2_standard_labels_kmeans.csv, <results-dir>/phase2/combined_user_metrics.csv",
+        "output": "<results-dir>/phase5/phase5_train_modeling.csv, <results-dir>/phase5/phase5_valid.csv, <results-dir>/phase5/phase5_test.csv",
         "visual_goal": "Comparison table of label distributions across the data splits.",
     },
     "6": {
         "name": "Model Training",
         "description": "Train multiple classification models and select the best one based on validation metrics.",
-        "input": "results/phase5/phase5_train_modeling.csv, results/phase5/phase5_valid.csv, results/phase5/phase5_test.csv",
-        "output": "results/phase6/phase6_* (comparison, confusion matrix, feature importance, model .pkl)",
+        "input": "<results-dir>/phase5/phase5_train_modeling.csv, <results-dir>/phase5/phase5_valid.csv, <results-dir>/phase5/phase5_test.csv",
+        "output": "<results-dir>/phase6/phase6_* (comparison, confusion matrix, feature importance, model .pkl)",
         "visual_goal": "Model comparison charts, confusion matrices, and feature importance plots.",
     },
     "7": {
         "name": "Model Evaluation",
         "description": "Summarize metrics for the best model, check against quality thresholds, and generate a final report.",
-        "input": "Artifacts from Phase 6 (results/phase6/)",
-        "output": "results/phase7/phase7_* and final_summary_report.txt",
+        "input": "Artifacts from Phase 6 (<results-dir>/phase6/)",
+        "output": "<results-dir>/phase7/phase7_* and final_summary_report.txt",
         "visual_goal": "Comparison of metrics on validation/test sets and pass/fail status of quality checks.",
     },
     "8": {
         "name": "Model Interpretability",
         "description": "Analyze and interpret feature contributions at global, class-wise, and individual sample levels.",
-        "input": "results/phase6/phase6_best_model.pkl, results/phase6/phase6_best_model_predictions.csv, results/phase5/phase5_test.csv",
-        "output": "results/phase8/phase8_* (global/class/local contributions and plots)",
+        "input": "<results-dir>/phase6/phase6_best_model.pkl, <results-dir>/phase6/phase6_best_model_predictions.csv, <results-dir>/phase5/phase5_test.csv",
+        "output": "<results-dir>/phase8/phase8_* (global/class/local contributions and plots)",
         "visual_goal": "Top important features and local explanations for representative samples.",
     },
 }
@@ -164,6 +164,7 @@ class StageConfig:
     q_low: float
     q_high: float
     split_strategy: str
+    evaluation_unit: str
     imbalance_method: str
     label_column: str
     group_column: str
@@ -358,6 +359,7 @@ def run_phase_5(cfg: StageConfig) -> None:
         "--output-dir", str(phase5_dir),
         "--input", str(step5_labeled_csv),
         "--combined-input", str(phase3_transformed_csv),
+        "--evaluation-unit", str(cfg.evaluation_unit),
         "--split-strategy", str(cfg.split_strategy),
         "--imbalance-method", str(cfg.imbalance_method),
         "--label-column", str(cfg.label_column),
@@ -426,6 +428,7 @@ def run_phase_7(cfg: StageConfig) -> None:
         "--class-metrics-input", str(phase6_dir / "phase6_classification_metrics.csv"),
         "--confusion-input", str(phase6_dir / "phase6_confusion_matrix.csv"),
         "--feature-importance-input", str(phase6_dir / "phase6_feature_importance.csv"),
+        "--predictions-input", str(phase6_dir / "phase6_best_model_predictions.csv"),
         "--phase2-report-input", str(phase4_dir / "phase4_labeling_report.txt"),
         "--phase3-report-input", str(phase5_dir / "phase5_split_report.txt"),
         "--phase4-report-input", str(phase6_dir / "phase6_training_report.txt"),
@@ -493,8 +496,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print detailed phase descriptions (work/input/output/visual goals) and exit.",
     )
     parser.add_argument("--dataset-dir", type=Path, default=Path(r"D:\MOOCCubeX_dataset"))
-    # Default results dir = experiment/results/
-    parser.add_argument("--results-dir", type=Path, default=Path("experiment/results"))
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        default=Path("reports/do-an"),
+        help="Output root for phase artifacts. Default: reports/do-an",
+    )
     parser.add_argument("--user-input", type=Path, default=Path("user.json"))
     parser.add_argument("--translated-user", type=Path, default=Path("phase1/user_school_en.json"))
     parser.add_argument("--translate-summary", type=Path, default=Path("phase1/school_translate_summary.txt"))
@@ -509,6 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--q-low", type=float, default=0.33)
     parser.add_argument("--q-high", type=float, default=0.66)
     parser.add_argument("--split-strategy", type=str, choices=["stratified", "group", "temporal", "hybrid"], default="stratified")
+    parser.add_argument("--evaluation-unit", type=str, choices=["user", "user_course"], default="user")
     parser.add_argument("--imbalance-method", type=str, choices=["none", "random_oversample", "smote"], default="random_oversample")
     parser.add_argument("--label-column", type=str, default="StandardLabelKMeans")
     parser.add_argument("--group-column", type=str, default="user_id")
@@ -553,6 +561,7 @@ def main() -> int:
     experiment_dir = (project_root / "experiment").resolve()
     dataset_dir = resolve_path_arg(args.dataset_dir, project_root, project_root)
     results_dir = resolve_path_arg(args.results_dir, project_root, project_root)
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     user_input = resolve_path_arg(args.user_input, project_root, dataset_dir)
     translated_user = resolve_path_arg(args.translated_user, project_root, results_dir)
@@ -579,6 +588,7 @@ def main() -> int:
         q_low=max(0.0, min(1.0, args.q_low)),
         q_high=max(0.0, min(1.0, args.q_high)),
         split_strategy=args.split_strategy,
+        evaluation_unit=args.evaluation_unit,
         imbalance_method=args.imbalance_method,
         label_column=args.label_column,
         group_column=args.group_column,

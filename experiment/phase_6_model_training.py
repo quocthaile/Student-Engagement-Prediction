@@ -83,6 +83,8 @@ class DatasetSplit:
     X: np.ndarray
     y: np.ndarray
     user_ids: List[str]
+    course_ids: List[str]
+    user_course_keys: List[str]
     row_ids: List[str]
 
 
@@ -225,6 +227,8 @@ def infer_feature_columns(
         "SplitSet",
         "phase5_row_id",
         "user_id",
+        "course_id",
+        "user_course_key",
         "school",
         "EngagementLabel",
         "cluster",
@@ -246,11 +250,21 @@ def build_dataset_split(
     X = np.zeros((len(rows), len(feature_columns)), dtype=np.float64)
     y = np.empty(len(rows), dtype=object)
     user_ids: List[str] = []
+    course_ids: List[str] = []
+    user_course_keys: List[str] = []
     row_ids: List[str] = []
 
     for i, row in enumerate(rows):
         y[i] = normalize_label(row.get(label_column, ""))
-        user_ids.append((row.get("user_id") or "").strip())
+        user_id = (row.get("user_id") or "").strip()
+        course_id = (row.get("course_id") or "").strip()
+        user_course_key = (row.get("user_course_key") or "").strip()
+        if not user_course_key and user_id and course_id:
+            user_course_key = f"{user_id}::{course_id}"
+
+        user_ids.append(user_id)
+        course_ids.append(course_id)
+        user_course_keys.append(user_course_key)
         row_id = (row.get("phase5_row_id") or "").strip()
         row_ids.append(row_id if row_id else str(i))
 
@@ -262,6 +276,8 @@ def build_dataset_split(
         X=X,
         y=y,
         user_ids=user_ids,
+        course_ids=course_ids,
+        user_course_keys=user_course_keys,
         row_ids=row_ids,
     )
 
@@ -1066,6 +1082,8 @@ def main() -> int:
                     "model": best_model_name,
                     "split": split.split_name,
                     "user_id": split.user_ids[i],
+                    "course_id": split.course_ids[i],
+                    "user_course_key": split.user_course_keys[i],
                     "phase5_row_id": split.row_ids[i],
                     "true_label": str(split.y[i]),
                     "pred_label": pred_label,
@@ -1117,6 +1135,8 @@ def main() -> int:
             "model",
             "split",
             "user_id",
+            "course_id",
+            "user_course_key",
             "phase5_row_id",
             "true_label",
             "pred_label",

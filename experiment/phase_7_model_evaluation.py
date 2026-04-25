@@ -18,6 +18,7 @@ Generated outputs:
 - results/phase7_model_selection_summary.csv
 - results/phase7_best_model_class_metrics.csv
 - results/phase7_best_model_confusion_matrix.csv
+- results/phase7_per_course_metrics.csv
 - results/phase7_top_features.csv
 - results/phase7_metric_checks.csv
 - results/phase7_evaluation_report.txt
@@ -40,6 +41,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 
 @dataclass
@@ -51,6 +53,7 @@ class Phase7Config:
     class_metrics_csv: Path
     confusion_csv: Path
     feature_importance_csv: Path
+    predictions_csv: Path
     selected_model_metrics_plot: Path
     class_metrics_plot: Path
     metric_checks_plot: Path
@@ -439,6 +442,7 @@ def build_final_summary_report_text(
     lines.append(f"- {cfg.output_dir / 'phase7_model_selection_summary.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_best_model_class_metrics.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_best_model_confusion_matrix.csv'}")
+    lines.append(f"- {cfg.output_dir / 'phase7_per_course_metrics.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_top_features.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_metric_checks.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_evaluation_report.txt'}")
@@ -534,6 +538,69 @@ def make_metric_checks(
     return checks
 
 
+def build_per_course_metrics(
+    prediction_rows: Sequence[Dict[str, str]],
+    selected_model: str,
+    class_order: Sequence[str],
+) -> List[Dict[str, Any]]:
+    grouped: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+
+    for row in prediction_rows:
+        if (row.get("model") or "").strip() != selected_model:
+            continue
+
+        split_name = (row.get("split") or "").strip()
+        if split_name not in {"valid", "test"}:
+            continue
+
+        course_id = (row.get("course_id") or "").strip() or "UNKNOWN_COURSE"
+        key = (split_name, course_id)
+        bucket = grouped.get(key)
+        if bucket is None:
+            bucket = {"y_true": [], "y_pred": []}
+            grouped[key] = bucket
+
+        bucket["y_true"].append((row.get("true_label") or "").strip())
+        bucket["y_pred"].append((row.get("pred_label") or "").strip())
+
+    out: List[Dict[str, Any]] = []
+    labels = [str(v) for v in class_order]
+    for (split_name, course_id), bucket in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+        y_true = np.asarray(bucket["y_true"], dtype=object)
+        y_pred = np.asarray(bucket["y_pred"], dtype=object)
+        if y_true.size == 0:
+            continue
+
+        _, _, macro_f1, _ = precision_recall_fscore_support(
+            y_true,
+            y_pred,
+            labels=labels,
+            average="macro",
+            zero_division=0,
+        )
+        _, _, weighted_f1, _ = precision_recall_fscore_support(
+            y_true,
+            y_pred,
+            labels=labels,
+            average="weighted",
+            zero_division=0,
+        )
+
+        out.append(
+            {
+                "model": selected_model,
+                "split": split_name,
+                "course_id": course_id,
+                "samples": int(y_true.shape[0]),
+                "accuracy": float(accuracy_score(y_true, y_pred)),
+                "macro_f1": float(macro_f1),
+                "weighted_f1": float(weighted_f1),
+            }
+        )
+
+    return out
+
+
 def build_report_text(
     cfg: Phase7Config,
     selected_model: str,
@@ -560,6 +627,7 @@ def build_report_text(
     lines.append(f"- Class metrics CSV           : {cfg.class_metrics_csv}")
     lines.append(f"- Confusion matrix CSV        : {cfg.confusion_csv}")
     lines.append(f"- Feature importance CSV      : {cfg.feature_importance_csv}")
+        lines.append(f"- Predictions CSV             : {cfg.predictions_csv}")
     lines.append(f"- Selection metric            : {selection_metric}")
     lines.append(f"- Top features exported       : {cfg.top_features}")
     lines.append(f"- AUC threshold               : {cfg.auc_threshold:.3f}")
@@ -614,6 +682,7 @@ def build_report_text(
     lines.append(f"- {cfg.output_dir / 'phase7_model_selection_summary.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_best_model_class_metrics.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_best_model_confusion_matrix.csv'}")
+    lines.append(f"- {cfg.output_dir / 'phase7_per_course_metrics.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_top_features.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_metric_checks.csv'}")
     lines.append(f"- {cfg.output_dir / 'phase7_evaluation_report.txt'}")
@@ -650,6 +719,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--feature-importance-input",
         type=Path,
         default=Path("phase6_feature_importance.csv"),
+    )
+    parser.add_argument(
+        "--predictions-input",
+        type=Path,
+        default=Path("phase6_best_model_predictions.csv"),
     )
     parser.add_argument(
         "--phase2-report-input",
@@ -698,6 +772,7 @@ def main() -> int:
     class_metrics_csv = resolve_path_arg(args.class_metrics_input, project_root, results_dir)
     confusion_csv = resolve_path_arg(args.confusion_input, project_root, results_dir)
     feature_importance_csv = resolve_path_arg(args.feature_importance_input, project_root, results_dir)
+    predictions_csv = resolve_path_arg(args.predictions_input, project_root, results_dir)
     phase2_report_txt = resolve_path_arg(args.phase2_report_input, project_root, results_dir)
     phase3_report_txt = resolve_path_arg(args.phase3_report_input, project_root, results_dir)
     phase4_report_txt = resolve_path_arg(args.phase4_report_input, project_root, results_dir)
@@ -711,6 +786,7 @@ def main() -> int:
         class_metrics_csv=class_metrics_csv,
         confusion_csv=confusion_csv,
         feature_importance_csv=feature_importance_csv,
+        predictions_csv=predictions_csv,
         phase2_report_txt=phase2_report_txt,
         phase3_report_txt=phase3_report_txt,
         phase4_report_txt=phase4_report_txt,
@@ -735,6 +811,7 @@ def main() -> int:
             cfg.class_metrics_csv,
             cfg.confusion_csv,
             cfg.feature_importance_csv,
+            cfg.predictions_csv,
         ]:
             if not required.exists():
                 raise FileNotFoundError(f"Required input not found: {required}")
@@ -743,6 +820,7 @@ def main() -> int:
         class_metric_rows, _ = parse_csv_rows(cfg.class_metrics_csv, cfg.max_rows, cfg.log_every)
         confusion_rows, _ = parse_csv_rows(cfg.confusion_csv, cfg.max_rows, cfg.log_every)
         feature_rows, _ = parse_csv_rows(cfg.feature_importance_csv, cfg.max_rows, cfg.log_every)
+        prediction_rows, _ = parse_csv_rows(cfg.predictions_csv, cfg.max_rows, cfg.log_every)
 
         best_model, best_valid, best_test = select_best_model(
             comparison_rows=comparison_rows,
@@ -755,6 +833,18 @@ def main() -> int:
         filtered_confusion_rows = [
             row for row in confusion_rows if (row.get("model") or "").strip() == best_model
         ]
+        class_order = sorted(
+            {
+                (row.get("label") or "").strip()
+                for row in filtered_class_rows
+                if (row.get("label") or "").strip()
+            }
+        )
+        per_course_rows = build_per_course_metrics(
+            prediction_rows=prediction_rows,
+            selected_model=best_model,
+            class_order=class_order,
+        )
 
         sorted_features = sorted(
             feature_rows,
@@ -824,6 +914,12 @@ def main() -> int:
             path=cfg.output_dir / "phase7_best_model_confusion_matrix.csv",
             fieldnames=["model", "split", "true_label", "pred_label", "count"],
             rows=filtered_confusion_rows,
+        )
+
+        write_csv(
+            path=cfg.output_dir / "phase7_per_course_metrics.csv",
+            fieldnames=["model", "split", "course_id", "samples", "accuracy", "macro_f1", "weighted_f1"],
+            rows=per_course_rows,
         )
 
         write_csv(

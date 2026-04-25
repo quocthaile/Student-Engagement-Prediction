@@ -62,3 +62,8 @@ python.exe experiment/phase_5_train_valid_test_split.py --split-strategy tempora
 
 # Chạy Phase 6 (Modeling) chỉ chạy Random Forest và HistGB:
 python.exe experiment/phase_6_supervised_model_training.py --models random_forest,hist_gb --cv-folds 5
+
+
+
+Nếu cần chạy riêng sản phẩm thực hành:
+python run_experiment_stages.py --phase all --results-dir reports/thuc-hanh
