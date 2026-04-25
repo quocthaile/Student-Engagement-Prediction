@@ -52,6 +52,7 @@ class StageConfig:
     time_fallback_column: str
     valid_size: float
     test_size: float
+    cutoff_week: Optional[int]
     seed: int
     seed_trials: int
     smote_k_neighbors: int
@@ -147,6 +148,8 @@ def run_phase_3(cfg: StageConfig) -> None:
     ]
     if cfg.combined_parquet is not None:
         cmd.extend(["--combined-parquet", str(cfg.combined_parquet)])
+    if cfg.cutoff_week is not None:
+        cmd.extend(["--cutoff-week", str(cfg.cutoff_week)])
     if cfg.max_rows is not None:
         cmd.extend(["--max-rows", str(cfg.max_rows)])
     run_command(cmd, cfg.project_root, "Phase 3 - Data Transformation")
@@ -302,6 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--time-column", type=str, default="last_activity_time")
     parser.add_argument("--time-fallback-column", type=str, default="first_activity_time")
     parser.add_argument("--valid-size", type=float, default=0.10)
+    parser.add_argument("--cutoff-week", type=int, default=None, help="Cutoff week for feature extraction (e.g., 202004 for week 4 of 2020)")
     parser.add_argument("--test-size", type=float, default=0.10)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--seed-trials", type=int, default=30)
@@ -369,6 +373,7 @@ def main() -> int:
         time_fallback_column=args.time_fallback_column,
         valid_size=max(1e-6, min(0.99, args.valid_size)),
         test_size=max(1e-6, min(0.99, args.test_size)),
+        cutoff_week=args.cutoff_week,
         seed=args.seed,
         seed_trials=max(1, args.seed_trials),
         smote_k_neighbors=max(1, args.smote_k_neighbors),

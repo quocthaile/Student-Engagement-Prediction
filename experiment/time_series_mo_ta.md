@@ -1,106 +1,68 @@
-# Mô tả `time series` và cách chia dữ liệu trong đề tài
+# Mô tả time series của bài toán dự báo sớm
 
-## 1) `time series` của bài toán là gì?
+## 1. Bản chất dữ liệu time series
 
-Trong đề tài này, `time series` không phải là chuỗi dự đoán theo từng phút/giây, mà là chuỗi hành vi theo **tuần** của từng người học.
+Trong đề tài này, time series không được hiểu là chuỗi số liệu liên tục theo giây, phút hay ngày để dự báo giá trị tương lai theo kiểu forecasting thuần túy. Ở đây, time series là chuỗi hành vi học tập theo tuần của từng người học, được biểu diễn bằng dữ liệu user-week. Mỗi bản ghi tương ứng với một user trong một tuần, phản ánh người học có tham gia hay không tham gia vào từng loại hoạt động học tập trong khoảng thời gian đó.
 
-Mỗi bản ghi mức tuần thể hiện hoạt động của một user trong một tuần, gồm:
+Lớp dữ liệu này được lưu trong file `step2_user_week_activity.csv`. Đây là lớp dữ liệu mô tả động thái học tập theo thời gian và là nền tảng để hình thành đặc trưng phục vụ dự báo sớm. Các cột cốt lõi của file này gồm `user_id`, `week`, `video`, `problem`, `reply`, `comment`. Trong đó, `week` là tuần ISO suy ra từ dấu thời gian hoạt động, còn bốn cột còn lại là các cờ nhị phân thể hiện sự xuất hiện của hoạt động tương ứng trong tuần đó.
 
-- `user_id`: mã người học
-- `week`: tuần ISO được suy ra từ thời gian phát sinh hoạt động
-- `video`: có/không hoạt động xem video trong tuần
-- `problem`: có/không hoạt động làm bài trong tuần
-- `reply`: có/không hoạt động trả lời trong tuần
-- `comment`: có/không hoạt động bình luận trong tuần
+## 2. Cách time series được sử dụng trong bài toán
 
-Vì vậy, `time series` ở đây là dữ liệu hành vi được sắp theo thời gian tuần, dùng để mô tả mức độ tương tác và phục vụ dự đoán nhãn sớm.
+Pipeline của đề tài không đưa toàn bộ chuỗi tuần thô trực tiếp vào mô hình tuần tự như RNN hoặc Transformer. Thay vào đó, dữ liệu theo tuần được tổng hợp và chuẩn hóa thành đặc trưng ở mức user-level để phục vụ phân loại nhãn mức độ tham gia. Cách tổ chức này phù hợp với mục tiêu của bài toán dự báo sớm, vì mô hình cần xác định sớm người học đang ở mức tương tác thấp, trung bình hay cao, chứ không phải dự đoán chính xác giá trị của từng tuần kế tiếp.
 
-## 2) Cách chia test trong pipeline
+Từ góc nhìn pipeline, `step2_user_week_activity.csv` là nguồn time series đầu vào ở mức tuần, còn các file `stage3_*` là các tập đã được chia để huấn luyện và đánh giá mô hình dự báo sớm. Nhãn mục tiêu của bài toán gồm 3 mức: `Low`, `Medium`, `High`. Ba nhãn này được xây dựng từ điểm engagement chuẩn hóa theo các ngưỡng phân vị, qua đó chuyển bài toán từ mô tả hành vi thành bài toán phân loại có ý nghĩa cảnh báo sớm.
 
-Pipeline có 4 kiểu chia tập, nhưng nếu xét theo hướng dự đoán sớm thì cách quan trọng nhất là:
+## 2.1. Mô phỏng kịch bản dự báo sớm với `cutoff-week`
 
-- `temporal`: chia theo thời gian, lấy các bản ghi cũ hơn làm train/valid và phần cuối theo thời gian làm test.
-- `hybrid`: test được lấy theo phần cuối thời gian, còn train/valid thì chia tiếp theo group hoặc stratified để hạn chế leakage.
+Để đảm bảo tính hợp lệ của bài toán "dự báo sớm", pipeline phải ngăn chặn rò rỉ thông tin từ tương lai (data leakage). Nếu các đặc trưng được tính trên toàn bộ lịch sử hoạt động của học viên, mô hình sẽ "biết trước" kết quả, và bài toán trở thành "phân loại sau khi sự đã rồi" thay vì "dự báo".
 
-Trong thực tế, test chỉ là **một tập duy nhất** cho đánh giá cuối, không chia thành nhiều cấp độ test riêng biệt.
+Để giải quyết vấn đề này, pipeline triển khai một cơ chế "tuần cắt" (`cutoff-week`).
 
-Mặc định phase split dùng:
+-   **Trích xuất đặc trưng có yếu tố thời gian**: Khi tham số `--cutoff-week` (ví dụ: `202004` cho tuần 4 năm 2020) được chỉ định, tất cả các đặc trưng ở mức user-level (như `problem_total`, `avg_attempts`, `video_sessions`) sẽ chỉ được tính toán dựa trên dữ liệu từ đầu khóa học cho đến tuần cắt đó.
+-   **Nhãn mục tiêu (Ground-truth)**: Ngược lại, nhãn mục tiêu (ví dụ `EngagementLabel`) vẫn được tính trên **toàn bộ** lịch sử hoạt động của khóa học. Nhãn này đại diện cho kết quả cuối cùng mà chúng ta muốn dự báo.
 
-- `valid_size = 0.10`
-- `test_size = 0.10`
+Bằng cách này, mô hình được huấn luyện để trả lời câu hỏi: "Dựa trên hành vi của học viên trong N tuần đầu tiên, mức độ tham gia cuối cùng của họ sẽ là gì?". Đây là cách mô phỏng chính xác kịch bản thực tế, nơi chúng ta muốn can thiệp sớm dựa trên những dữ liệu ban đầu có được.
 
-Nghĩa là dữ liệu được chia thành 3 phần: `train` / `valid` / `test`.
+## 3. Ý nghĩa của dự báo sớm (Early Prediction)
 
-## 3) Ý nghĩa cảnh báo sớm Low / Medium / High
+Mục tiêu của dự báo sớm trong đề tài là phát hiện nhóm người học có mức tham gia thấp càng sớm càng tốt để hỗ trợ cảnh báo và can thiệp. Vì vậy, `Low` là lớp quan trọng nhất về mặt nghiệp vụ. `Medium` là nhóm trung gian, cần theo dõi thêm trước khi đưa ra kết luận. `High` đại diện cho nhóm tham gia tốt, có mức độ tương tác tích cực và rủi ro thấp hơn.
 
-Nhãn của bài toán có 3 mức:
+Trong đánh giá mô hình, pipeline ưu tiên khả năng nhận diện lớp `Low`, vì đây là nhóm cần cảnh báo sớm nhất. Điều này giải thích vì sao độ nhớ lại của lớp `Low` được xem là chỉ số rất quan trọng trong giai đoạn đánh giá.
 
-- `Low`
-- `Medium`
-- `High`
+## 4. Cách chia tập dữ liệu (Data Splitting)
 
-Các nhãn này được gán theo phân vị của điểm engagement chuẩn hoá:
+Phase chia dữ liệu chỉ sử dụng ba tập chuẩn là train, valid và test. Tuy nhiên, để tránh leakage theo thời gian, pipeline hỗ trợ chiến lược chia `temporal` và `hybrid`. Với `temporal`, test được lấy từ phần dữ liệu xuất hiện muộn hơn theo trật tự thời gian, còn train và valid là phần sớm hơn. Với `hybrid`, test vẫn là phần cuối theo thời gian, trong khi train/valid được chia tiếp bằng group hoặc stratified để cân bằng giữa tính đúng thứ tự thời gian và độ ổn định phân bố nhãn.
 
-- dưới ngưỡng thấp -> `Low`
-- giữa hai ngưỡng -> `Medium`
-- trên ngưỡng cao -> `High`
+Điểm quan trọng là test không bị chia thành nhiều cấp độ riêng. Đây là một tập đánh giá duy nhất, đại diện cho dữ liệu chưa nhìn thấy, và được dùng để kiểm tra khả năng tổng quát hóa của mô hình trên bối cảnh dự báo sớm.
 
-Ý nghĩa trong cảnh báo sớm:
+## 5. Dữ liệu huấn luyện thực tế (Training Data)
 
-- `Low`: nhóm cần cảnh báo sớm nhất, vì mức tương tác thấp có thể là tín hiệu rủi ro.
-- `Medium`: nhóm trung gian, cần theo dõi thêm.
-- `High`: nhóm tương tác tốt, ít rủi ro hơn.
+File thực tế mà phase huấn luyện mô hình đọc là `stage3_train_modeling.csv`. Đây không còn là dữ liệu tuần thô mà là dữ liệu đã flatten ở mức feature để đưa vào bộ phân loại. File này gồm các cột đặc trưng số được suy ra từ train split, một cột nhãn mục tiêu `StandardLabelKMeans`, và một cột phụ trợ `sample_origin` dùng để ghi nhận nguồn gốc mẫu sau xử lý mất cân bằng.
 
-Trong đánh giá mô hình, pipeline ưu tiên `recall` của lớp `Low`, vì bắt được càng nhiều người thuộc nhóm rủi ro càng tốt.
+Các cột đặc trưng thường gặp trong pipeline gồm `num_courses`, `problem_total`, `problem_correct`, `attempts_sum`, `problem_accuracy`, `avg_attempts`, `video_sessions`, `reply_count`, `comment_count`, `engagement_events`. Khi tạo feature, phase huấn luyện sẽ tự loại bỏ các cột metadata như `SplitSet`, `stage3_row_id`, `user_id`, `school`, `EngagementLabel`, `cluster`, `first_activity_time`, `last_activity_time` để tránh làm nhiễu mô hình.
 
-## 4) Trong dữ liệu train có những cột gì?
+## 6. Dữ liệu kiểm thử thực tế (Test Data)
 
-Nếu nói về file huấn luyện sau khi split và xử lý mất cân bằng, file `stage3_train_modeling.csv` có cấu trúc:
+File test thực tế mà phase đánh giá đọc là `stage3_test.csv`. File này giữ schema của dữ liệu split ở phase trước, nghĩa là vẫn có các cột gốc từ dữ liệu gán nhãn và các cột được enrich từ `combined_user_metrics.csv` nếu có. Ngoài ra, file còn có `stage3_row_id` và `SplitSet` để phục vụ truy vết tập dữ liệu.
 
-- các cột đặc trưng số được chọn tự động từ dữ liệu gốc
-- một cột nhãn: `StandardLabelKMeans`
-- một cột phụ trợ: `sample_origin`
+Điểm khác biệt quan trọng là test không trải qua oversampling hoặc SMOTE, vì mục đích của nó là phản ánh đúng phân phối thật khi mô hình gặp dữ liệu mới. Do đó, test là thước đo thực tế hơn cho khả năng dự báo sớm của hệ thống.
 
-Nhóm cột đặc trưng thường lấy từ dữ liệu user-level sau khi đã merge, ví dụ:
+## 7. So sánh dữ liệu Train và Test
 
-- `num_courses`
-- `problem_total`
-- `problem_correct`
-- `attempts_sum`
-- `problem_accuracy`
-- `avg_attempts`
-- `video_sessions`
-- `reply_count`
-- `comment_count`
-- `engagement_events`
+| Tiêu chí | Train thực tế | Test thực tế |
+|---|---|---|
+| File | `stage3_train_modeling.csv` | `stage3_test.csv` |
+| Vai trò | Huấn luyện classifier | Đánh giá trên dữ liệu chưa nhìn thấy |
+| Dạng dữ liệu | Bảng đặc trưng đã flatten | Bảng split để đánh giá mô hình |
+| Nhãn mục tiêu | Có, `StandardLabelKMeans` | Có, `StandardLabelKMeans` |
+| `sample_origin` | Có | Không |
+| `SplitSet` | Không | Có |
+| `stage3_row_id` | Không | Có |
+| `user_id`, `school` | Không dùng làm feature | Có trong dữ liệu gốc |
+| Cột time series theo tuần | Không trực tiếp | Không trực tiếp; chuỗi tuần gốc nằm ở `step2_user_week_activity.csv` |
 
-Nếu nói theo file split gốc `stage3_train.csv`, file này giữ schema của bản dữ liệu đã tách, gồm:
+Từ bảng trên có thể thấy rằng train và test khác nhau chủ yếu ở vai trò và ở việc train có thể đã được cân bằng lại bằng oversampling hoặc SMOTE, trong khi test luôn giữ nguyên phân phối thật. Tuy cùng thuộc cùng một bài toán, train là đầu vào cho quá trình học mô hình, còn test là đầu vào cho giai đoạn kiểm tra khả năng tổng quát hóa cuối cùng.
 
-- toàn bộ cột từ dữ liệu gán nhãn và các cột được enrich từ combined CSV
-- `stage3_row_id`
-- `SplitSet`
+## 8. Kết luận
 
-## 5) Dữ liệu test time series có những cột gì?
-
-Nếu nói đúng phần `time series` ở mức user-week, dữ liệu tương ứng là `step2_user_week_activity.csv`, gồm:
-
-- `user_id`
-- `week`
-- `video`
-- `problem`
-- `reply`
-- `comment`
-
-Nếu nói về file test sau khi split để đánh giá mô hình, file `stage3_test.csv` có cùng schema với tập split gốc, tức là:
-
-- các cột gốc từ dữ liệu đã gán nhãn
-- các cột được merge từ `combined_user_metrics.csv` nếu có
-- `stage3_row_id`
-- `SplitSet`
-
-## 6) Kết luận ngắn
-
-- `time series` của đề tài là chuỗi hành vi theo tuần của từng user.
-- Test không chia thành nhiều cấp độ riêng, mà chỉ chia thành một tập test theo thời gian hoặc theo chiến lược hybrid.
-- Dự đoán sớm trong pipeline tập trung vào phát hiện lớp `Low` để cảnh báo rủi ro sớm.
-- Dữ liệu train-modeling là tập feature số + nhãn + nguồn mẫu; dữ liệu time-series mức tuần là bộ cột `user_id, week, video, problem, reply, comment`.
+Tóm lại, time series của đề tài là chuỗi hành vi theo tuần của từng user, được biểu diễn bởi các hoạt động `video`, `problem`, `reply`, `comment` trên nền `week`. Bài toán dự báo sớm được triển khai dưới dạng phân loại ba lớp `Low`, `Medium`, `High`, trong đó `Low` là lớp cần ưu tiên cảnh báo sớm nhất. Dữ liệu train thực tế cho mô hình là `stage3_train_modeling.csv`, còn dữ liệu test thực tế là `stage3_test.csv`. Chuỗi thời gian mức tuần được lưu tách riêng trong `step2_user_week_activity.csv` để làm cơ sở cho quá trình trích xuất và diễn giải hành vi.

@@ -648,7 +648,10 @@ def iter_csv_rows(path: Path, max_rows: Optional[int] = None) -> Iterable[Dict[s
 
 
 def build_label_names(k: int) -> List[str]:
-    if k <= 0:
+    """
+    Tạo danh sách tên nhãn chuẩn (Low, Medium, High).
+    """
+    if k <= 0: 
         return []
     if k == 1:
         return ["Medium"]
@@ -763,18 +766,28 @@ class KMeansLabelInitializer:
                     if self.cfg.max_rows is not None and idx > self.cfg.max_rows:
                         break
 
+                    # Logic cũ: gán nhãn dựa trên cluster K-Means
+                    # cluster = (row.get("cluster") or "NA").strip() or "NA"
+                    # rank, label_name = cluster_label_map[cluster]
+                    # stats = cluster_stats[cluster]
+                    # row["StandardLabelKMeans"] = label_name
+
+                    # Logic mới: Gán nhãn trực tiếp từ EngagementLabel (phân vị)
+                    # để tránh logic luẩn quẩn. K-Means chỉ dùng để phân tích.
+                    standard_label = (row.get("EngagementLabel") or "Unknown").strip()
+
                     cluster = (row.get("cluster") or "NA").strip() or "NA"
-                    rank, label_name = cluster_label_map[cluster]
-                    stats = cluster_stats[cluster]
+                    rank, _ = cluster_label_map.get(cluster, (0, "NA"))
+                    stats = cluster_stats.get(cluster)
 
                     row["kmeans_cluster_rank"] = rank
-                    row["kmeans_cluster_mean_E"] = round(stats.mean_e(), 6)
-                    row["kmeans_cluster_mean_E_norm"] = round(stats.mean_e_norm(), 6)
-                    row["StandardLabelKMeans"] = label_name
+                    row["kmeans_cluster_mean_E"] = round(stats.mean_e(), 6) if stats else ""
+                    row["kmeans_cluster_mean_E_norm"] = round(stats.mean_e_norm(), 6) if stats else ""
+                    row["StandardLabelKMeans"] = standard_label
                     writer.writerow(row)
 
                     written += 1
-                    label_counts_new[label_name] = label_counts_new.get(label_name, 0) + 1
+                    label_counts_new[standard_label] = label_counts_new.get(standard_label, 0) + 1
 
                     if written % self.cfg.log_every == 0:
                         log(f"Write progress: rows={written:,}")
@@ -825,7 +838,7 @@ class KMeansLabelInitializer:
         )
 
         with self.cfg.output_report_txt.open("w", encoding="utf-8") as f:
-            f.write("Step 5 - K-Means Standard Label Initialization\n")
+            f.write("Step 5 - Standard Label Initialization from Quantiles\n")
             f.write("=" * 90 + "\n")
             f.write(f"Generated at           : {now_text()}\n")
             f.write(f"Input Step 3 CSV       : {self.cfg.input_csv}\n")
@@ -833,8 +846,12 @@ class KMeansLabelInitializer:
             f.write(f"Elapsed seconds        : {elapsed:.2f}\n")
             f.write(f"Output labeled CSV     : {self.cfg.output_labeled_csv}\n")
             f.write(f"Output cluster map CSV : {self.cfg.output_cluster_map_csv}\n")
+            f.write("\n")
+            f.write("NOTE: The 'StandardLabelKMeans' is now derived from quantile-based 'EngagementLabel',\n")
+            f.write("      not from K-Means clusters. K-Means results are for analysis only.\n")
 
-            f.write("\nCluster ranking and standard labels:\n")
+
+            f.write("\nCluster ranking (for analysis only):\n")
             for stats in ranked_clusters:
                 rank, label_name = cluster_label_map[stats.cluster]
                 pct = (stats.count / total_rows * 100.0) if total_rows > 0 else 0.0
@@ -1941,4 +1958,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

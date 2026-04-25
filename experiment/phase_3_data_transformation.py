@@ -77,6 +77,7 @@ class CombineConfig:
     log_every: int = 200000
     max_lines_per_file: Optional[int] = None
     keep_db: bool = False
+    cutoff_week: Optional[int] = None
 
 
 @dataclass
@@ -402,6 +403,11 @@ class StreamingCombiner:
         log("Step 2/5: Streaming combine from user-problem.json")
 
         def apply(record, delta: AggregateDelta) -> None:
+            if self.cfg.cutoff_week is not None:
+                week = parse_week_from_datetime(record.get("submit_time"))
+                if week is not None and week > self.cfg.cutoff_week:
+                    return
+
             delta.problem_total += 1
             is_correct = record.get("is_correct")
             if is_correct in (1, True, "1"):
@@ -454,11 +460,17 @@ class StreamingCombiner:
                 if not isinstance(segments, list):
                     continue
                 for seg in segments:
-                    if not isinstance(seg, dict):
-                        continue
+                    if not isinstance(seg, dict): continue
+
+                    if self.cfg.cutoff_week is not None:
+                        week = parse_week_from_unix(seg.get("local_start_time"))
+                        if week is not None and week > self.cfg.cutoff_week:
+                            continue
+
                     delta.segment_count += 1
 
                     local_start_dt = parse_datetime_from_unix(seg.get("local_start_time"))
+
                     if local_start_dt is not None:
                         delta.update_time(local_start_dt.isoformat())
 
@@ -509,6 +521,11 @@ class StreamingCombiner:
         log("Step 4/5: Streaming combine from reply.json")
 
         def apply(record, delta: AggregateDelta) -> None:
+            if self.cfg.cutoff_week is not None:
+                week = parse_week_from_datetime(record.get("create_time"))
+                if week is not None and week > self.cfg.cutoff_week:
+                    return
+
             delta.reply_count += 1
             delta.update_time(record.get("create_time"))
 
@@ -536,6 +553,11 @@ class StreamingCombiner:
         log("Step 5/5: Streaming combine from comment.json")
 
         def apply(record, delta: AggregateDelta) -> None:
+            if self.cfg.cutoff_week is not None:
+                week = parse_week_from_datetime(record.get("create_time"))
+                if week is not None and week > self.cfg.cutoff_week:
+                    return
+
             delta.comment_count += 1
             delta.update_time(record.get("create_time"))
 
@@ -956,11 +978,11 @@ class StreamingCombiner:
                 )
 
 
-def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Path) -> None:
+def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Path, cutoff_week: Optional[int]) -> None:
     import pandas as pd
     import numpy as np
 
-    log(f"Reading parquet file: {parquet_path}")
+    log(f"Reading parquet file: {parquet_path} with cutoff_week={cutoff_week}")
     df = pd.read_parquet(parquet_path)
 
     if "user_id" not in df.columns:
@@ -975,7 +997,7 @@ def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Pat
     # Keep behavior aligned with JSON streaming path: only users with >5 courses.
     df = df[df["num_courses"] > 5].copy()
 
-    log("Aggregating user metrics from parquet...")
+    log("Preparing event time and week columns for parquet...")
     for col in ["is_correct", "attempts", "score"]:
         if col not in df.columns:
             df[col] = 0
@@ -1044,8 +1066,55 @@ def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Pat
 
     if event_time_parts:
         df["_event_time"] = pd.concat(event_time_parts, axis=1).bfill(axis=1).iloc[:, 0]
+    else:
+        df["_event_time"] = pd.NaT
+
+    df_for_agg = df
+    if cutoff_week is not None and "_event_time" in df.columns:
+        df_with_time = df[df["_event_time"].notna()].copy()
+        iso = df_with_time["_event_time"].dt.isocalendar()
+        df_with_time["_week"] = (iso["year"].astype(int) * 100 + iso["week"].astype(int))
+        df_for_agg = df_with_time[df_with_time["_week"] <= cutoff_week]
+
+    log(f"Aggregating user metrics from {len(df_for_agg):,} parquet events...")
+
+    video_count_col = "log_id" if "log_id" in df_for_agg.columns else ("seq" if "seq" in df_for_agg.columns else None)
+    problem_count_col = "problem_id" if "problem_id" in df_for_agg.columns else None
+
+    reply_count_col = "reply_id" if "reply_id" in df_for_agg.columns else ("id_x" if "id_x" in df_for_agg.columns else None)
+    comment_count_col = "comment_id" if "comment_id" in df_for_agg.columns else ("id_y" if "id_y" in df_for_agg.columns else None)
+
+    named_aggs: Dict[str, Tuple[str, str]] = {
+        "num_courses": ("num_courses", "max"),
+        "problem_correct": ("is_correct", "sum"),
+        "attempts_sum": ("attempts", "sum"),
+        "score_sum": ("score", "sum"),
+        "score_count": ("score", "count"),
+    }
+    if "gender" in df_for_agg.columns:
+        named_aggs["gender"] = ("gender", "first")
+    if "school" in df_for_agg.columns:
+        named_aggs["school"] = ("school", "first")
+    if "year_of_birth" in df_for_agg.columns:
+        named_aggs["year_of_birth"] = ("year_of_birth", "first")
+    if problem_count_col is not None:
+        named_aggs["problem_total"] = (problem_count_col, "count")
+    if video_count_col is not None:
+        named_aggs["video_count"] = (video_count_col, "count")
+    if reply_count_col is not None:
+        named_aggs["reply_count"] = (reply_count_col, "count")
+    if comment_count_col is not None:
+        named_aggs["comment_count"] = (comment_count_col, "count")
+
+    user_agg = df_for_agg.groupby("user_id").agg(**named_aggs).reset_index()
+
+    for col in ["problem_total", "video_count", "reply_count", "comment_count"]:
+        if col not in user_agg.columns:
+            user_agg[col] = 0
+
+    if "_event_time" in df_for_agg.columns:
         time_agg = (
-            df.groupby("user_id")["_event_time"]
+            df_for_agg[df_for_agg["_event_time"].notna()].groupby("user_id")["_event_time"]
             .agg(first_activity_time="min", last_activity_time="max")
             .reset_index()
         )
@@ -1055,12 +1124,6 @@ def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Pat
     else:
         user_agg["first_activity_time"] = ""
         user_agg["last_activity_time"] = ""
-
-    user_agg["problem_accuracy"] = np.where(
-        user_agg["problem_total"] > 0,
-        user_agg["problem_correct"] / user_agg["problem_total"],
-        0,
-    )
     user_agg["avg_attempts"] = np.where(
         user_agg["problem_total"] > 0,
         user_agg["attempts_sum"] / user_agg["problem_total"],
@@ -1068,6 +1131,11 @@ def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Pat
     )
     user_agg["avg_score"] = np.where(user_agg["score_count"] > 0, user_agg["score_sum"] / user_agg["score_count"], 0)
 
+    user_agg["problem_accuracy"] = np.where(
+        user_agg["problem_total"] > 0,
+        user_agg["problem_correct"] / user_agg["problem_total"],
+        0,
+    )
     # Limited signal in compact parquet, keep conservative proxy fields for compatibility.
     user_agg["video_sessions"] = user_agg["video_count"]
     user_agg["segment_count"] = user_agg["video_count"] * 3
@@ -1096,7 +1164,7 @@ def process_parquet(parquet_path: Path, output_csv: Path, output_weekly_csv: Pat
     log(f"Saving {len(user_agg)} rows to {output_csv}")
     user_agg.to_csv(output_csv, index=False)
 
-    log("Generating weekly user activity from parquet...")
+    log("Generating weekly user activity from full parquet data...")
     weekly_cols = ["user_id", "week", "video", "problem", "reply", "comment"]
     if "_event_time" in df.columns:
         weekly_df = df[df["_event_time"].notna()][["user_id", "_event_time"]].copy()
@@ -1144,6 +1212,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--weekly-file", type=Path, default=Path("step2_user_week_activity.csv"))
     parser.add_argument("--db-file", type=Path, default=Path("combined_streaming.sqlite3"))
     parser.add_argument("--combined-parquet", type=Path, default=None)
+    parser.add_argument("--cutoff-week", type=int, default=None, help="Cutoff week for feature extraction (e.g., 202004 for week 4 of 2020)")
     parser.add_argument("--log-every", type=int, default=200000)
     parser.add_argument("--max-rows", type=int, default=None)
     return parser
@@ -1166,7 +1235,7 @@ def main() -> int:
         if args.combined_parquet is not None:
             parquet_path = resolve_path_arg(args.combined_parquet, project_root, output_dir)
             if parquet_path.exists():
-                process_parquet(parquet_path, combined_file, weekly_file)
+                process_parquet(parquet_path, combined_file, weekly_file, args.cutoff_week)
                 log(f"Phase 3 completed using Parquet input in {time.time() - started:.2f}s")
                 return 0
             else:
@@ -1186,7 +1255,8 @@ def main() -> int:
             weekly_flush_every=20000,
             log_every=max(1, args.log_every),
             max_lines_per_file=args.max_rows,
-            keep_db=False
+            keep_db=False,
+            cutoff_week=args.cutoff_week
         )
         combiner = StreamingCombiner(cfg)
         combiner.run()
@@ -1199,4 +1269,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

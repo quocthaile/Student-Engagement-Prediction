@@ -1,5 +1,13 @@
 import pandas as pd
 
+# =============================================================================
+# CẢNH BÁO: SCRIPT KHÁM PHÁ
+# File này chỉ dành cho mục đích khám phá dữ liệu nhanh (EDA) trong notebook.
+# Phương pháp lấy mẫu (sample 5k -> top 5k) có thể gây thiên lệch (bias)
+# và không đại diện cho toàn bộ tập dữ liệu.
+# Logic tính toán trong pipeline chính (các file phase_*.py) là phiên bản chuẩn.
+# =============================================================================
+
 # 1. Load dữ liệu và lấy sample 5k
 df = pd.read_parquet("/kaggle/input/datasets/kaling92/combined-all/combined_all_data.parquet")
 df_sample = df.sample(n=5000, random_state=42)
@@ -41,9 +49,10 @@ activity_df['E'] = (weights['video']*activity_df['video'] +
 student_scores = activity_df.groupby('user_id')['E'].sum().reset_index()
 
 # 8. Chuẩn hóa điểm và gán nhãn
-student_scores['E_norm'] = (student_scores['E'] - student_scores['E'].min()) / (student_scores['E'].max() - student_scores['E'].min())
+min_e, max_e = student_scores['E'].min(), student_scores['E'].max()
+student_scores['E_norm'] = (student_scores['E'] - min_e) / (max_e - min_e) if max_e > min_e else 0.0
 low_th = student_scores['E_norm'].quantile(0.33)
-high_th = student_scores['E_norm'].quantile(0.66)
+high_th = student_scores['E_norm'].quantile(0.67)
 
 def label(score):
     if score <= low_th: return 'Low'
