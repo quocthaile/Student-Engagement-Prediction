@@ -72,3 +72,6 @@ models/
 
 # Keep config tracked
 !config/*.json
+
+# Kaggle update code
+kaggle_update_code.txt
