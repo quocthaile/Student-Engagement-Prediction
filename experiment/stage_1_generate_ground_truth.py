@@ -8,6 +8,7 @@ from config import (
     GROUND_TRUTH_FILE,
     GROUND_TRUTH_REPORT_FILE,
     GROUND_TRUTH_WEIGHTS,
+    LABEL_PERCENTILES,
     PRIMARY_KEY,
     RANDOM_STATE,
     RAW_DATA_PARQUET,
@@ -73,20 +74,20 @@ def main():
         scaled[col] * weight for col, weight in GROUND_TRUTH_WEIGHTS.items()
     )
 
-    print("[4/4] Đang gán nhãn theo phân vị để cân bằng lớp...")
+    print("[4/4] Đang gán nhãn theo phân vị tự nhiên để tránh 1:1:1...")
     label_order = ["Low_Engagement", "Medium_Engagement", "High_Engagement"]
     rank_scores = user_features["weighted_score"].rank(method="first", ascending=True)
 
     if LABELING_STRATEGY == "quantile_rank":
         user_features["target_label"] = pd.qcut(
             rank_scores,
-            q=3,
+            q=[0.0, float(LABEL_PERCENTILES[0]), float(LABEL_PERCENTILES[1]), 1.0],
             labels=label_order,
         )
     else:
         user_features["target_label"] = pd.qcut(
             rank_scores,
-            q=3,
+            q=[0.0, float(LABEL_PERCENTILES[0]), float(LABEL_PERCENTILES[1]), 1.0],
             labels=label_order,
         )
     user_features["target_label"] = user_features["target_label"].astype(str)
@@ -126,12 +127,17 @@ def main():
     print("\nPhân phối nhãn thực tế:")
     distribution = (
         user_features["target_label"]
-        .value_counts(normalize=True)
+        .value_counts()
         .reindex(label_order)
-        .mul(100)
-        .round(2)
+        .fillna(0)
+        .astype(int)
     )
-    print(distribution.to_string() + " %")
+    distribution_df = pd.DataFrame({
+        "target_label": distribution.index,
+        "count": distribution.values,
+        "percentage": (distribution / distribution.sum() * 100).round(2),
+    })
+    print(distribution_df.to_string(index=False))
 
 if __name__ == "__main__":
     main()

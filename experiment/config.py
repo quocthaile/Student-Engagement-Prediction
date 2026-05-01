@@ -3,19 +3,11 @@ import json
 
 
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parent
+DATASET_DIR = PROJECT_DIR / "dataset"
 
 # Input
 RAW_DATA_PARQUET = Path(r"D:\MOOCCubeX_dataset\combined_all_data.parquet")
-TEST_FILE = BASE_DIR / "model_data_3w" / "test_original.csv"
-MODEL_OUT_DIR = BASE_DIR / "deployment_models"
-IMAGE_OUT_DIR = BASE_DIR / "output_images_3w"
-MODEL_BUNDLE_FILE = MODEL_OUT_DIR / "deployment_bundle.pkl"
-
-# Stage outputs
-GROUND_TRUTH_FILE = BASE_DIR / "ground_truth_labels.csv"
-GROUND_TRUTH_REPORT_FILE = BASE_DIR / "ground_truth_report.csv"
-
-# Shared pipeline settings
 RANDOM_STATE = 42
 PRIMARY_KEY = "user_id"
 
@@ -23,8 +15,29 @@ PRIMARY_KEY = "user_id"
 TIME_WINDOWS_DAYS = [14, 21, 28]
 DEFAULT_OBSERVATION_DAYS = 28
 
+MODEL_DATA_DIR = DATASET_DIR / "model_data"
+FEATURES_WINDOW_FILE = DATASET_DIR / f"user_features_{DEFAULT_OBSERVATION_DAYS}days.csv"
+FEATURES_COMPAT_FILE = DATASET_DIR / "user_features_and_wes.csv"
+EXPERIMENTAL_DATASET_FILE = DATASET_DIR / "experimental_dataset.csv"
+TRAIN_FILE = MODEL_DATA_DIR / "train_smote.csv"
+VALID_FILE = MODEL_DATA_DIR / "valid_original.csv"
+# Preprocessed dataset placed at top-level dataset folder per user request
+PREPROCESSING_DATASET_FILE = DATASET_DIR / "pre-processing_dataset.csv"
+TEST_FILE = MODEL_DATA_DIR / "test_original.csv"
+MODEL_OUT_DIR = BASE_DIR / "deployment_models"
+IMAGE_OUT_DIR = BASE_DIR / "output_images_3w"
+MODEL_BUNDLE_FILE = MODEL_OUT_DIR / "deployment_bundle.pkl"
+
+# Backward compatibility alias
+FULL_PREPROCESSED_FILE = PREPROCESSING_DATASET_FILE
+
+# Stage outputs
+GROUND_TRUTH_FILE = DATASET_DIR / "ground_truth_labels.csv"
+GROUND_TRUTH_REPORT_FILE = DATASET_DIR / "ground_truth_report.csv"
+
 # Labeling / sampling controls
 LABELING_STRATEGY = "quantile_rank"
+LABEL_PERCENTILES = (0.60, 0.85)
 MAX_TRAIN_SAMPLES_PER_CLASS = None
 TRAIN_TARGET_TOTAL_SAMPLES = 60000
 TRAIN_CLASS_RATIOS = {

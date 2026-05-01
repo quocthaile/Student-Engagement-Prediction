@@ -10,12 +10,21 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler
 
 from config import (
+    DATASET_DIR,
+    EXPERIMENTAL_DATASET_FILE,
+    FEATURES_COMPAT_FILE,
     GROUND_TRUTH_FILE,
     PRIMARY_KEY,
     RANDOM_STATE,
+    MODEL_DATA_DIR,
+    MODEL_OUT_DIR,
     MAX_TRAIN_SAMPLES_PER_CLASS,
     TRAIN_CLASS_RATIOS,
     TRAIN_TARGET_TOTAL_SAMPLES,
+    TRAIN_FILE,
+    VALID_FILE,
+    TEST_FILE,
+    PREPROCESSING_DATASET_FILE,
 )
 
 logging.basicConfig(
@@ -25,15 +34,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FEATURES_AND_LABELS_FILE = Path("user_features_and_wes.csv")
-
-MODEL_DATA_DIR = Path("model_data_3w")
-MODEL_OUT_DIR = Path("deployment_models")
-
-TRAIN_FILE = MODEL_DATA_DIR / "train_smote.csv"
-VALID_FILE = MODEL_DATA_DIR / "valid_original.csv"
-TEST_FILE = MODEL_DATA_DIR / "test_original.csv"
-FULL_PREPROCESSED_FILE = MODEL_DATA_DIR / "full_preprocessed.csv"
+FEATURES_AND_LABELS_FILE = FEATURES_COMPAT_FILE
 
 LABEL_ENCODER_FILE = MODEL_OUT_DIR / "label_encoder.pkl"
 SCHOOL_ENCODER_FILE = MODEL_OUT_DIR / "school_encoder.pkl"
@@ -64,6 +65,23 @@ def main():
         if "target_label" not in df.columns:
             labels = pd.read_csv(GROUND_TRUTH_FILE)
             df = df.merge(labels, on=PRIMARY_KEY, how="inner")
+
+        logger.info("[1.5/6] Lưu bộ dataset thực nghiệm trước khi chia tập...")
+        experimental_columns = [
+            col for col in [
+                PRIMARY_KEY,
+                "school",
+                "year_of_birth",
+                "gender",
+                "num_courses",
+                "attempts_3w",
+                "is_correct_3w",
+                "score_3w",
+                "accuracy_rate_3w",
+                "target_label",
+            ] if col in df.columns
+        ]
+        df[experimental_columns].to_csv(EXPERIMENTAL_DATASET_FILE, index=False, encoding="utf-8-sig")
 
         required_columns = [PRIMARY_KEY, "school", "year_of_birth", "gender", "num_courses", "attempts_3w", "is_correct_3w", "score_3w", "accuracy_rate_3w", "target_label"]
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -189,14 +207,14 @@ def main():
 
         df_full = df.copy()
         df_full["school_encoded"] = school_encoder.transform(df_full[["school"]])
-        full_preprocessed = pd.concat(
+        pre_processing_dataset = pd.concat(
             [
                 pd.DataFrame(scaler.transform(imputer.transform(df_full[FINAL_FEATURES])), columns=FINAL_FEATURES),
                 df_full[[PRIMARY_KEY, "gender", "target_label"]].reset_index(drop=True),
             ],
             axis=1,
         )
-        full_preprocessed.to_csv(FULL_PREPROCESSED_FILE, index=False, encoding="utf-8-sig")
+        pre_processing_dataset.to_csv(PREPROCESSING_DATASET_FILE, index=False, encoding="utf-8-sig")
 
         joblib.dump(label_encoder, LABEL_ENCODER_FILE)
         joblib.dump(school_encoder, SCHOOL_ENCODER_FILE)
@@ -204,7 +222,9 @@ def main():
         joblib.dump(scaler, SCALER_FILE)
 
         print("=" * 80)
-        logger.info("✅ HOÀN TẤT! Stage 3 đã split trước, fit trên train và xuất đủ artifacts.")
+        logger.info("HOÀN TẤT Stage 3: split, fit preprocessing trên train và xuất các artifact.")
+        logger.info(f"Experimental dataset: {EXPERIMENTAL_DATASET_FILE}")
+        logger.info(f"Preprocessing dataset: {PREPROCESSING_DATASET_FILE}")
         print("=" * 80)
 
     except Exception as e:

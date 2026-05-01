@@ -7,6 +7,8 @@ from pathlib import Path
 
 from config import (
     DEFAULT_OBSERVATION_DAYS,
+    FEATURES_COMPAT_FILE,
+    FEATURES_WINDOW_FILE,
     GROUND_TRUTH_FILE,
     PRIMARY_KEY,
     RAW_DATA_PARQUET,
@@ -19,8 +21,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FEATURES_WINDOW_FILE = Path(f"user_features_{DEFAULT_OBSERVATION_DAYS}days.csv")
-FEATURES_COMPAT_FILE = Path("user_features_and_wes.csv")
 OBSERVATION_DAYS = DEFAULT_OBSERVATION_DAYS
 
 RAW_REQUIRED_COLUMNS_STEP2 = [
@@ -132,9 +132,9 @@ def main():
         final_df.to_csv(FEATURES_COMPAT_FILE, index=False, encoding="utf-8-sig")
 
         print("=" * 80)
-        logger.info(f"✅ HOÀN TẤT GIAI ĐOẠN 2! Đã lưu file Đặc trưng: {FEATURES_WINDOW_FILE}")
-        logger.info(f"✅ Đã lưu file tương thích: {FEATURES_COMPAT_FILE}")
-        logger.info(f"   Tổng số sinh viên có trong tập huấn luyện: {len(final_df):,}")
+        logger.info(f"HOÀN TẤT GIAI ĐOẠN 2. Đã lưu file Đặc trưng: {FEATURES_WINDOW_FILE}")
+        logger.info(f"Đã lưu file tương thích: {FEATURES_COMPAT_FILE}")
+        logger.info(f"Tổng số sinh viên có trong tập huấn luyện: {len(final_df):,}")
         print("=" * 80)
 
     except Exception as e:

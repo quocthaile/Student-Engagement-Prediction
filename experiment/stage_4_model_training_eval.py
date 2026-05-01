@@ -18,7 +18,15 @@ from sklearn.metrics import (
     roc_auc_score, confusion_matrix
 )
 
-from config import IMAGE_OUT_DIR, MODEL_BUNDLE_FILE, MODEL_OUT_DIR, TEST_FILE
+from config import (
+    IMAGE_OUT_DIR,
+    MODEL_BUNDLE_FILE,
+    MODEL_DATA_DIR,
+    MODEL_OUT_DIR,
+    TEST_FILE,
+    TRAIN_FILE,
+    VALID_FILE,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,11 +34,6 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
-
-MODEL_DATA_DIR = Path("model_data_3w")
-
-TRAIN_FILE = MODEL_DATA_DIR / "train_smote.csv"
-VALID_FILE = MODEL_DATA_DIR / "valid_original.csv"
 
 LABEL_ENCODER_FILE = MODEL_OUT_DIR / "label_encoder.pkl"
 SCHOOL_ENCODER_FILE = MODEL_OUT_DIR / "school_encoder.pkl"
@@ -187,8 +190,8 @@ def main():
         joblib.dump(best_model, BEST_MODEL_FILE)
         joblib.dump(deployment_bundle, MODEL_BUNDLE_FILE)
 
-        logger.info(f"✅ HOÀN TẤT GIAI ĐOẠN 4!")
-        logger.info(f"   Bundle triển khai lưu tại: {MODEL_BUNDLE_FILE}")
+        logger.info(f"HOÀN TẤT GIAI ĐOẠN 4.")
+        logger.info(f"Bundle triển khai lưu tại: {MODEL_BUNDLE_FILE}")
 
     except Exception as e:
         logger.exception("Đã xảy ra lỗi nghiêm trọng ở Giai đoạn 4:")

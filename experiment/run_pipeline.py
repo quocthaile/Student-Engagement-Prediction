@@ -26,7 +26,9 @@ def run_step(script_name: str, env_overrides: dict | None = None) -> None:
     env = None
     if env_overrides:
         _write_overrides(env_overrides)
-    result = subprocess.run([sys.executable, str(script_path)], cwd=BASE_DIR)
+    cmd = [sys.executable, str(script_path)]
+    print(f"Executing command: {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode != 0:
         raise SystemExit(result.returncode)
 
