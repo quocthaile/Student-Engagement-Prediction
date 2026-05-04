@@ -1,109 +1,72 @@
-import logging
-import joblib
-import numpy as np
 import pandas as pd
-from collections import Counter
+import numpy as np
+import sys
 from pathlib import Path
 from imblearn.over_sampling import SMOTE
-from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 
 from config import (
-    DATASET_DIR,
-    EXPERIMENTAL_DATASET_FILE,
     FEATURES_COMPAT_FILE,
-    GROUND_TRUTH_FILE,
     PRIMARY_KEY,
     RANDOM_STATE,
     MODEL_DATA_DIR,
-    MODEL_OUT_DIR,
-    MAX_TRAIN_SAMPLES_PER_CLASS,
-    TRAIN_CLASS_RATIOS,
-    TRAIN_TARGET_TOTAL_SAMPLES,
     TRAIN_FILE,
     VALID_FILE,
     TEST_FILE,
-    PREPROCESSING_DATASET_FILE,
+    WINDOW_SUFFIX,
+    ENABLE_SMOTE,
 )
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - [%(levelname)s] - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
 
 FEATURES_AND_LABELS_FILE = FEATURES_COMPAT_FILE
-
-LABEL_ENCODER_FILE = MODEL_OUT_DIR / "label_encoder.pkl"
-SCHOOL_ENCODER_FILE = MODEL_OUT_DIR / "school_encoder.pkl"
-IMPUTER_FILE = MODEL_OUT_DIR / "imputer.pkl"
-SCALER_FILE = MODEL_OUT_DIR / "scaler.pkl"
-
-
 TARGET_LABELS_ORDER = ["Low_Engagement", "Medium_Engagement", "High_Engagement"]
-NUMERIC_FEATURES = ["attempts_3w", "is_correct_3w", "score_3w", "accuracy_rate_3w", "num_courses", "age"]
-FINAL_FEATURES = ["school_encoded"] + NUMERIC_FEATURES
+
+# Features để sử dụng cho train/valid/test
+TRAINING_FEATURES = [
+    "school_encoded",
+    f"attempts_{WINDOW_SUFFIX}",
+    f"is_correct_{WINDOW_SUFFIX}",
+    f"score_{WINDOW_SUFFIX}",
+    f"accuracy_rate_{WINDOW_SUFFIX}",
+    "num_courses",
+]
+
 
 def main():
     print("=" * 80)
-    print("STEP 3: ADVANCED SPLITTING (8:1:1), K-MEANS LABELING & SMOTE")
+    smote_desc = "+ SMOTE" if ENABLE_SMOTE else "(SMOTE disabled)"
+    print(f"STEP 3: STRATIFIED SPLITTING (8:1:1) {smote_desc}")
     print("=" * 80)
 
     try:
         MODEL_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        MODEL_OUT_DIR.mkdir(parents=True, exist_ok=True)
-
-        logger.info("[1/6] Đang tải dữ liệu đã ghép nhãn từ stage 2...")
+        
         if not FEATURES_AND_LABELS_FILE.exists():
             raise FileNotFoundError(f"Missing features file: {FEATURES_AND_LABELS_FILE}")
-        if not GROUND_TRUTH_FILE.exists():
-            raise FileNotFoundError(f"Missing ground truth file: {GROUND_TRUTH_FILE}")
 
+        # Load data
         df = pd.read_csv(FEATURES_AND_LABELS_FILE)
+        print(f"✓ Đã tải dữ liệu: {len(df):,} dòng")
+        print(f"  Cột: {list(df.columns)}")
+
+        # Ensure target_label exists
         if "target_label" not in df.columns:
-            labels = pd.read_csv(GROUND_TRUTH_FILE)
-            df = df.merge(labels, on=PRIMARY_KEY, how="inner")
+            raise KeyError("Missing target_label column")
+        
+        # Check required training features
+        missing = [c for c in TRAINING_FEATURES if c not in df.columns]
+        if missing:
+            raise KeyError(f"Missing training features: {missing}")
+        
+        print(f"✓ Label distribution: {df['target_label'].value_counts().to_dict()}")
 
-        logger.info("[1.5/6] Lưu bộ dataset thực nghiệm trước khi chia tập...")
-        experimental_columns = [
-            col for col in [
-                PRIMARY_KEY,
-                "school",
-                "year_of_birth",
-                "gender",
-                "num_courses",
-                "attempts_3w",
-                "is_correct_3w",
-                "score_3w",
-                "accuracy_rate_3w",
-                "target_label",
-            ] if col in df.columns
-        ]
-        df[experimental_columns].to_csv(EXPERIMENTAL_DATASET_FILE, index=False, encoding="utf-8-sig")
-
-        required_columns = [PRIMARY_KEY, "school", "year_of_birth", "gender", "num_courses", "attempts_3w", "is_correct_3w", "score_3w", "accuracy_rate_3w", "target_label"]
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise KeyError(f"Missing required columns: {missing_columns}")
-
-        df["year_of_birth"] = pd.to_numeric(df["year_of_birth"], errors="coerce")
-        current_year = pd.Timestamp.now().year
-        if "age" not in df.columns:
-            df["age"] = (current_year - df["year_of_birth"]).clip(lower=10, upper=100)
-        else:
-            df["age"] = pd.to_numeric(df["age"], errors="coerce")
-        for col in NUMERIC_FEATURES:
-            if col not in df.columns:
-                df[col] = np.nan
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        df[NUMERIC_FEATURES] = df[NUMERIC_FEATURES].replace([np.inf, -np.inf], np.nan)
-        df["school"] = df["school"].fillna("Unknown").astype(str).str.strip()
-        df["gender"] = df["gender"].fillna("Unknown").astype(str).str.strip()
-        df = df.dropna(subset=["target_label"]).reset_index(drop=True)
-
-        logger.info("[2/6] Đang chia train/valid/test theo nhãn thật (stratified trên target_label)...")
+        # Stratified Split: 8:1:1 (train 80%, temp 20% → valid 50%, test 50%)
         df_train, df_temp = train_test_split(
             df,
             test_size=0.2,
@@ -116,119 +79,60 @@ def main():
             random_state=RANDOM_STATE,
             stratify=df_temp["target_label"],
         )
+        
+        print(f"✓ Split: Train {len(df_train)}, Valid {len(df_valid)}, Test {len(df_test)}")
 
-        logger.info(f"   -> Size: Train ({len(df_train)}), Valid ({len(df_valid)}), Test ({len(df_test)})")
-
-        logger.info("[3/6] Đang fit label encoder và preprocessing CHỈ trên train...")
+        # Encode labels
         label_encoder = LabelEncoder()
         label_encoder.fit(TARGET_LABELS_ORDER)
-
+        
         y_train = label_encoder.transform(df_train["target_label"])
         y_valid = label_encoder.transform(df_valid["target_label"])
         y_test = label_encoder.transform(df_test["target_label"])
 
-        school_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-        school_encoder.fit(df_train[["school"]])
+        # Prepare feature matrices
+        X_train = df_train[TRAINING_FEATURES].copy()
+        X_valid = df_valid[TRAINING_FEATURES].copy()
+        X_test = df_test[TRAINING_FEATURES].copy()
 
-        for frame in [df_train, df_valid, df_test]:
-            frame["school_encoded"] = school_encoder.transform(frame[["school"]])
+        # Apply SMOTE on training data only (if enabled)
+        if ENABLE_SMOTE:
+            print("✓ Áp dụng SMOTE trên training data...")
+            smote = SMOTE(random_state=RANDOM_STATE, k_neighbors=5)
+            X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+            print(f"  Train sau SMOTE: {len(X_train_smote)} mẫu")
+            print(f"  Label distribution: {np.unique(y_train_smote, return_counts=True)}")
+        else:
+            print("ℹ SMOTE bị tắt (ENABLE_SMOTE=False), giữ nguyên tỷ lệ cân bằng train")
+            X_train_smote = X_train
+            y_train_smote = y_train
+            print(f"  Train giữ nguyên: {len(X_train_smote)} mẫu")
+            print(f"  Label distribution: {np.unique(y_train_smote, return_counts=True)}")
 
-        X_train = df_train[FINAL_FEATURES].copy()
-        X_valid = df_valid[FINAL_FEATURES].copy()
-        X_test = df_test[FINAL_FEATURES].copy()
-
-        imputer = SimpleImputer(strategy="median")
-        scaler = StandardScaler()
-
-        X_train_imputed = imputer.fit_transform(X_train)
-        X_valid_imputed = imputer.transform(X_valid)
-        X_test_imputed = imputer.transform(X_test)
-
-        X_train_processed = scaler.fit_transform(X_train_imputed)
-        X_valid_processed = scaler.transform(X_valid_imputed)
-        X_test_processed = scaler.transform(X_test_imputed)
-
-        logger.info("[4/6] Đang điều chỉnh phân phối train theo tỷ lệ mục tiêu 4.8:1.8:3.5...")
-        logger.info(f"   -> Train trước điều chỉnh: {len(df_train):,} mẫu")
-        logger.info(f"   -> Phân phối train trước điều chỉnh: {df_train['target_label'].value_counts().to_dict()}")
-
-        target_total = TRAIN_TARGET_TOTAL_SAMPLES if TRAIN_TARGET_TOTAL_SAMPLES else len(df_train)
-        ratio_sum = float(sum(TRAIN_CLASS_RATIOS.values()))
-        target_counts = {
-            label: max(1, int(round(target_total * weight / ratio_sum)))
-            for label, weight in TRAIN_CLASS_RATIOS.items()
-        }
-        diff = target_total - sum(target_counts.values())
-        if diff != 0:
-            first_label = next(iter(TRAIN_CLASS_RATIOS))
-            target_counts[first_label] += diff
-
-        sampled_frames = []
-        for label, target_count in target_counts.items():
-            class_frame = df_train[df_train["target_label"] == label]
-            if class_frame.empty:
-                raise ValueError(f"Class '{label}' has no samples in train split.")
-            replace = len(class_frame) < target_count
-            sampled_frames.append(
-                class_frame.sample(n=target_count, replace=replace, random_state=RANDOM_STATE)
-            )
-
-        df_train = (
-            pd.concat(sampled_frames, axis=0)
-            .sample(frac=1.0, random_state=RANDOM_STATE)
-            .reset_index(drop=True)
-        )
-        logger.info(f"   -> Train sau điều chỉnh: {len(df_train):,} mẫu")
-        logger.info(f"   -> Target counts: {target_counts}")
-        logger.info(f"   -> Phân phối train sau điều chỉnh: {df_train['target_label'].value_counts().to_dict()}")
-
-        y_train = label_encoder.transform(df_train["target_label"])
-        X_train = df_train[FINAL_FEATURES].copy()
-        X_train_imputed = imputer.fit_transform(X_train)
-        X_train_processed = scaler.fit_transform(X_train_imputed)
-        X_valid_processed = scaler.transform(imputer.transform(X_valid))
-        X_test_processed = scaler.transform(imputer.transform(X_test))
-
-        X_train_smote = X_train_processed
-        y_train_smote = y_train
-
-        logger.info("[5/6] Đang lưu các tập dữ liệu và artifacts tiền xử lý...")
-        train_final = pd.DataFrame(X_train_smote, columns=FINAL_FEATURES)
-        train_final["target_label"] = y_train_smote
+        # Save datasets
+        train_final = pd.DataFrame(X_train_smote, columns=TRAINING_FEATURES)
+        train_final["target_label"] = label_encoder.inverse_transform(y_train_smote)
         train_final.to_csv(TRAIN_FILE, index=False, encoding="utf-8-sig")
+        print(f"✓ Lưu train: {TRAIN_FILE}")
 
-        valid_final = pd.DataFrame(X_valid_processed, columns=FINAL_FEATURES)
-        valid_final["target_label"] = y_valid
+        valid_final = pd.DataFrame(X_valid, columns=TRAINING_FEATURES)
+        valid_final["target_label"] = df_valid["target_label"].values
         valid_final.to_csv(VALID_FILE, index=False, encoding="utf-8-sig")
+        print(f"✓ Lưu valid: {VALID_FILE}")
 
-        test_final = pd.DataFrame(X_test_processed, columns=FINAL_FEATURES)
-        test_final["target_label"] = y_test
+        test_final = pd.DataFrame(X_test, columns=TRAINING_FEATURES)
+        test_final["target_label"] = df_test["target_label"].values
         test_final.to_csv(TEST_FILE, index=False, encoding="utf-8-sig")
-
-        df_full = df.copy()
-        df_full["school_encoded"] = school_encoder.transform(df_full[["school"]])
-        pre_processing_dataset = pd.concat(
-            [
-                pd.DataFrame(scaler.transform(imputer.transform(df_full[FINAL_FEATURES])), columns=FINAL_FEATURES),
-                df_full[[PRIMARY_KEY, "gender", "target_label"]].reset_index(drop=True),
-            ],
-            axis=1,
-        )
-        pre_processing_dataset.to_csv(PREPROCESSING_DATASET_FILE, index=False, encoding="utf-8-sig")
-
-        joblib.dump(label_encoder, LABEL_ENCODER_FILE)
-        joblib.dump(school_encoder, SCHOOL_ENCODER_FILE)
-        joblib.dump(imputer, IMPUTER_FILE)
-        joblib.dump(scaler, SCALER_FILE)
+        print(f"✓ Lưu test: {TEST_FILE}")
 
         print("=" * 80)
-        logger.info("HOÀN TẤT Stage 3: split, fit preprocessing trên train và xuất các artifact.")
-        logger.info(f"Experimental dataset: {EXPERIMENTAL_DATASET_FILE}")
-        logger.info(f"Preprocessing dataset: {PREPROCESSING_DATASET_FILE}")
+        print("HOÀN TẤT Stage 3: Split stratified + SMOTE")
         print("=" * 80)
 
     except Exception as e:
-        logger.exception("Đã xảy ra lỗi:")
+        print(f"❌ Lỗi: {e}")
+        raise
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,50 @@
+{
+  "model_name": "Logistic Regression",
+  "model_class": "LogisticRegression",
+  "model_params": {
+    "C": 1.0,
+    "class_weight": null,
+    "dual": false,
+    "fit_intercept": true,
+    "intercept_scaling": 1,
+    "l1_ratio": 0.0,
+    "max_iter": 1000,
+    "n_jobs": null,
+    "penalty": "deprecated",
+    "random_state": 42,
+    "solver": "lbfgs",
+    "tol": 0.0001,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "validation_metrics": {
+    "Model": "Logistic Regression",
+    "Accuracy": 0.6088,
+    "Balanced_Accuracy": 0.606,
+    "F1_Macro": 0.5016,
+    "F1_Weighted": 0.5033,
+    "Recall_Macro": 0.606,
+    "Recall_Low_Engagement": 0.0117,
+    "Precision_Low_Engagement": 0.1645,
+    "F1_Low_Engagement": 0.0218,
+    "AUC_ROC_OVR": 0.7696
+  },
+  "test_metrics": {
+    "Accuracy": 0.6106,
+    "Balanced_Accuracy": 0.6077,
+    "F1_Macro": 0.5045,
+    "F1_Weighted": 0.5062,
+    "Precision_Macro": 0.4863,
+    "Recall_Macro": 0.6077,
+    "Precision_Low_Engagement": 0.1835,
+    "Recall_Low_Engagement": 0.0136,
+    "F1_Low_Engagement": 0.0253,
+    "AUC_ROC_OVR": 0.7696,
+    "Model": "Logistic Regression"
+  },
+  "target_labels": [
+    "High_Engagement",
+    "Low_Engagement",
+    "Medium_Engagement"
+  ]
+}

@@ -75,3 +75,7 @@ models/
 
 # Kaggle update code
 kaggle_update_code.txt
+
+
+stage2_action_timeline.csv
+dataset/stage2_action_timeline.csv
