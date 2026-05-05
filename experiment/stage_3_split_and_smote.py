@@ -5,6 +5,7 @@ from pathlib import Path
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+import joblib
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -17,6 +18,7 @@ from config import (
     PRIMARY_KEY,
     RANDOM_STATE,
     MODEL_DATA_DIR,
+    MODEL_OUT_DIR,
     TRAIN_FILE,
     VALID_FILE,
     TEST_FILE,
@@ -124,6 +126,10 @@ def main():
         test_final["target_label"] = df_test["target_label"].values
         test_final.to_csv(TEST_FILE, index=False, encoding="utf-8-sig")
         print(f"✓ Lưu test: {TEST_FILE}")
+
+        MODEL_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        joblib.dump(label_encoder, MODEL_OUT_DIR / "label_encoder.pkl")
+        print(f"✓ Lưu label encoder: {MODEL_OUT_DIR / 'label_encoder.pkl'}")
 
         print("=" * 80)
         print("HOÀN TẤT Stage 3: Split stratified + SMOTE")

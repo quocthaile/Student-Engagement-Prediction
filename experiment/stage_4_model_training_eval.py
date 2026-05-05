@@ -12,6 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 
 from sklearn.metrics import (
@@ -58,6 +59,7 @@ MODEL_META_FILE = MODEL_OUT_DIR / "best_model_metadata.json"
 
 RANDOM_STATE = 42
 TARGET_RISK_CLASS = "Low_Engagement"
+TARGET_LABELS_ORDER = ["Low_Engagement", "Medium_Engagement", "High_Engagement"]
 
 
 def export_prediction_details(
@@ -90,7 +92,16 @@ def load_data_and_artifacts() -> tuple:
     train_df = pd.read_csv(TRAIN_FILE)
     valid_df = pd.read_csv(VALID_FILE)
     test_df = pd.read_csv(TEST_FILE)
-    label_encoder = joblib.load(LABEL_ENCODER_FILE)
+    if LABEL_ENCODER_FILE.exists():
+        label_encoder = joblib.load(LABEL_ENCODER_FILE)
+    else:
+        logger.warning(
+            f"Không tìm thấy {LABEL_ENCODER_FILE}; sẽ tạo lại LabelEncoder theo thứ tự nhãn chuẩn."
+        )
+        label_encoder = LabelEncoder()
+        label_encoder.fit(TARGET_LABELS_ORDER)
+        LABEL_ENCODER_FILE.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(label_encoder, LABEL_ENCODER_FILE)
     logger.info(
         f"-> Kích thước dữ liệu: train={len(train_df):,}, valid={len(valid_df):,}, test={len(test_df):,}; "
         f"số lớp={len(label_encoder.classes_)}"
@@ -321,9 +332,9 @@ def main():
             "model": best_model,
             "model_name": best_model_name,
             "label_encoder": label_encoder,
-            "school_encoder": joblib.load(SCHOOL_ENCODER_FILE),
-            "imputer": joblib.load(IMPUTER_FILE),
-            "scaler": joblib.load(SCALER_FILE),
+            "school_encoder": joblib.load(SCHOOL_ENCODER_FILE) if SCHOOL_ENCODER_FILE.exists() else None,
+            "imputer": joblib.load(IMPUTER_FILE) if IMPUTER_FILE.exists() else None,
+            "scaler": joblib.load(SCALER_FILE) if SCALER_FILE.exists() else None,
             "feature_columns": list(X_train.columns),
             "target_labels": label_encoder.classes_.tolist()
         }
