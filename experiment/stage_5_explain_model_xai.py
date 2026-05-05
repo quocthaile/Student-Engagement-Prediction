@@ -6,7 +6,16 @@ import shap
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, classification_report, f1_score, precision_score, recall_score
 
-from config import IMAGE_OUT_DIR, MODEL_BUNDLE_FILE, TEST_FILE
+from config import (
+    IMAGE_OUT_DIR,
+    MODEL_BUNDLE_FILE,
+    TEST_FILE,
+    TIME_WINDOW_MODE,
+    DEFAULT_OBSERVATION_DAYS,
+    LABEL_PERCENTILES,
+    TRAIN_CLASS_RATIOS,
+    ENABLE_SMOTE,
+)
 
 
 def main():
@@ -77,10 +86,17 @@ def main():
         output_dict=True,
         zero_division=0,
     )
+    accuracy = accuracy_score(y_test, y_pred)
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
+
     summary_lines = [
         f"Model: {bundle['model_name']}",
-        f"Accuracy: {accuracy_score(y_test, y_pred):.4f}",
-        f"Balanced accuracy: {balanced_accuracy_score(y_test, y_pred):.4f}",
+        f"Window mode: {TIME_WINDOW_MODE}, observation_days={DEFAULT_OBSERVATION_DAYS}",
+        f"Label percentiles: {LABEL_PERCENTILES}",
+        f"Train class ratios: {TRAIN_CLASS_RATIOS}",
+        f"Enable SMOTE: {ENABLE_SMOTE}",
+        f"Accuracy: {accuracy:.4f}",
+        f"Balanced accuracy: {balanced_acc:.4f}",
         f"Macro F1: {f1_score(y_test, y_pred, average='macro', zero_division=0):.4f}",
         f"Weighted F1: {f1_score(y_test, y_pred, average='weighted', zero_division=0):.4f}",
         f"Low-class precision: {precision_score(y_test, y_pred, labels=labels_list, average=None, zero_division=0)[low_idx]:.4f}",
@@ -93,7 +109,7 @@ def main():
         f.write("\n\nClassification report:\n")
         f.write(pd.DataFrame(report).T.to_string())
     print(f"Saved expected-results summary: {summary_path}")
-    print(f"   -> Summary metrics: accuracy={summary_lines[1].split(': ')[1]}, balanced={summary_lines[2].split(': ')[1]}")
+    print(f"   -> Summary metrics: accuracy={accuracy:.4f}, balanced={balanced_acc:.4f}")
 
     importances = None
     if hasattr(model, "feature_importances_"):

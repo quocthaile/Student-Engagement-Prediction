@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 from pathlib import Path
+import joblib
 from sklearn.preprocessing import OrdinalEncoder
 
 from config import (
@@ -18,6 +19,7 @@ from config import (
     TIME_WINDOW_COMPARE_SUMMARY_FILE,
     TIME_WINDOW_MODE,
     PREPROCESSING_DATASET_FILE,
+    MODEL_OUT_DIR,
 )
 
 logging.basicConfig(
@@ -307,6 +309,11 @@ def encode_school_column(features: pd.DataFrame) -> pd.DataFrame:
     school_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
     features["school"] = features["school"].fillna("Unknown").astype(str).str.strip()
     features["school_encoded"] = school_encoder.fit_transform(features[["school"]])
+    try:
+        MODEL_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        joblib.dump(school_encoder, MODEL_OUT_DIR / "school_encoder.pkl")
+    except Exception:
+        logger.exception("Không lưu được school_encoder.pkl")
     return features
 
 
@@ -318,6 +325,11 @@ def reorganize_columns(final_df: pd.DataFrame) -> pd.DataFrame:
         f"score_{WINDOW_SUFFIX}",
         f"accuracy_rate_{WINDOW_SUFFIX}",
         "num_courses",
+        # static summary features computed from timeline
+        "seq",
+        "speed",
+        "rep_counts",
+        "cmt_counts",
         "year_of_birth",
         "gender",
     ]
@@ -391,6 +403,10 @@ def main():
                 pct_value = int(round(float(frac) * 100))
                 df_window = build_relative_window(df, float(frac))
                 features = extract_features(df_window)
+                # Merge additional (static) features computed from raw window
+                additional = calculate_additional_features(df_window)
+                if not additional.empty:
+                    features = features.merge(additional, on=PRIMARY_KEY, how="left")
                 features = add_action_time_to_features(features, df)
                 features = encode_school_column(features)
                 final_df = finalize_with_labels(features)
@@ -409,6 +425,10 @@ def main():
         else:
             df_window = build_fixed_window(df)
             features = extract_features(df_window)
+            # Merge additional (static) features computed from raw window
+            additional = calculate_additional_features(df_window)
+            if not additional.empty:
+                features = features.merge(additional, on=PRIMARY_KEY, how="left")
             features = add_action_time_to_features(features, df)
             features = encode_school_column(features)
             final_df = finalize_with_labels(features)

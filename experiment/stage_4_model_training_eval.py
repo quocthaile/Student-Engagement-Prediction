@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -120,11 +121,14 @@ def load_data_and_artifacts() -> tuple:
         except Exception:
             return series.astype(int)
 
-    X_train = train_df.drop(columns=["target_label"])
+    feature_columns = [c for c in train_df.columns if c != "target_label"]
+    X_train = train_df[feature_columns].copy()
     y_train = encode_target(train_df["target_label"])
-    X_valid = valid_df.drop(columns=["target_label"])
+    X_valid = valid_df.drop(columns=["target_label"]).reindex(columns=feature_columns).copy()
+    X_valid = X_valid.fillna(0)
     y_valid = encode_target(valid_df["target_label"])
-    X_test = test_df.drop(columns=["target_label"])
+    X_test = test_df.drop(columns=["target_label"]).reindex(columns=feature_columns).copy()
+    X_test = X_test.fillna(0)
     y_test = encode_target(test_df["target_label"])
 
     return X_train, y_train, X_valid, y_valid, X_test, y_test, label_encoder
@@ -207,7 +211,13 @@ def main():
 
         logger.info("[1/4] Đang khởi tạo các thuật toán Học máy...")
         models = {
-            "Logistic Regression": LogisticRegression(max_iter=1000, random_state=RANDOM_STATE),
+            "Logistic Regression": OneVsRestClassifier(
+                LogisticRegression(
+                    solver="liblinear",
+                    max_iter=300,
+                    random_state=RANDOM_STATE,
+                )
+            ),
             "Linear SVC": LinearSVC(dual=False, random_state=RANDOM_STATE),
             "Decision Tree": DecisionTreeClassifier(max_depth=5, random_state=RANDOM_STATE),
             "Random Forest": RandomForestClassifier(
