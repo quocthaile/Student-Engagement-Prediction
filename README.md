@@ -10,14 +10,11 @@ Dự án khai phá dữ liệu dự đoán **mức độ tham gia học tập** 
 
 ```
 project/
-├── experiment/      ← THỰC HÀNH: Source code pipeline thực nghiệm
-├── final/           ← ĐỒ ÁN: Source code đồ án
-├── reports/         ← SẢN PHẨM CHẠY: Artifacts sinh ra từ pipeline
-│   ├── thuc-hanh/   ← Sản phẩm thực hành
-│   └── do-an/       ← Sản phẩm đồ án
-└── report/          ← NỘP BÀI: Báo cáo, thuyết minh, slide (.docx, .pptx)
-    ├── thuc-hanh/   ← Tài liệu nộp cho phần Thực hành
-    └── do-an/       ← Tài liệu nộp cho phần Đồ án môn học
+├── experiment/        ← Source code pipeline thực nghiệm
+├── dataset/           ← Dữ liệu trung gian và dữ liệu huấn luyện
+└── reports/           ← Tài liệu/sản phẩm nộp bài thực tế
+    ├── Thực hành/
+    └── Đồ án/
 ```
 
 ---
@@ -26,13 +23,13 @@ project/
 
 ### Thực hành
 
-> 📂 Code: **`experiment/`** | 📦 Sản phẩm chạy từ pipeline: **`reports/do-an/`** | 📄 Báo cáo & slide: **`report/thuc-hanh/`**
+> 📂 Code: **`experiment/`** | 📦 Sản phẩm nộp thực tế: **`reports/Thực hành/`**
 
 | STT | Hạng mục nộp                             | Vị trí                               |
 | --- | ------------------------------------------- | -------------------------------------- |
-| 1   | Thuyết minh đề tài (.docx, .pptx)       | `report/thuc-hanh/`                  |
-| 2   | Báo cáo phân tích bộ dữ liệu (.docx) | `report/thuc-hanh/`                  |
-| 3   | Bộ dữ liệu sau tiền xử lý             | `dataset/pos-processing_dataset.csv` |
+| 1   | Thuyết minh đề tài (.docx, .pptx)       | `reports/Thực hành/1a. Thuyết minh đề tài.docx` + `reports/Thực hành/1b. Thuyết minh đề tài.pptx` |
+| 2   | Báo cáo phân tích bộ dữ liệu (.docx) | `reports/Thực hành/2a. Phân tích bộ dữ liệu.docx` |
+| 3   | Bộ dữ liệu sau tiền xử lý             | `reports/Thực hành/3. Bộ dữ liệu sau khi tiền xử lý.csv` |
 | 4   | Video thuyết trình (bật camera)          | —                                     |
 
 **Thang điểm thực hành (10đ):**
@@ -47,13 +44,13 @@ project/
 
 ### Đồ án môn học
 
-> 📂 Code đồ án: **`final/`** | 📦 Sản phẩm chạy: **`reports/do-an/`** | 📄 Báo cáo & slide: **`report/do-an/`**
+> 📂 Code đồ án: **`experiment/`** | 📦 Sản phẩm nộp thực tế: **`reports/Đồ án/`**
 
 | STT | Hạng mục nộp                                            | Vị trí                       |
 | --- | ---------------------------------------------------------- | ------------------------------ |
-| 1   | Báo cáo đồ án (.docx, .pptx)                          | `report/do-an/`              |
-| 2   | Bộ dữ liệu thực nghiệm (sinh từ pipeline experiment) | `dataset/model_data`         |
-| 3   | Toàn bộ source code                                      | `final/` (hoặc link Kaggle) |
+| 1   | Báo cáo đồ án (.docx, .pptx)                          | `reports/Đồ án/Báo cáo đồ án.docx` + `reports/Đồ án/Báo cáo đồ án.pptx` |
+| 2   | Bộ dữ liệu thực nghiệm (sinh từ pipeline experiment) | `reports/Đồ án/Bộ dữ liệu thực nghiệm/` |
+| 3   | Toàn bộ source code                                      | `experiment/`, `dashboard/`, `dataset/` |
 | 4   | Video thuyết trình (bật camera)                         | —                             |
 
 **Thang điểm đồ án cuối kỳ (10đ):**
@@ -74,7 +71,7 @@ Thư mục `experiment/` được thiết kế lại theo bài toán thực tế
 - Chỉ dùng dữ liệu đến thời điểm dự đoán (chống leakage).
 - Mục tiêu là cảnh báo trước khi khóa học kết thúc để can thiệp.
 
-Tài liệu thiết kế đầy đủ: `report/thuc-hanh/thiet-ke-he-thong-canh-bao-som-user-course.md`
+Tài liệu thực hành hiện có: `reports/Thực hành/Kịch bản thực nghiệm.docx` và `reports/Thực hành/Kịch bản thực nghiệm.pdf`
 
 Pipeline 8 phase (hướng vận hành):
 
@@ -89,7 +86,7 @@ Phase 7: Model Evaluation  →  Đánh giá theo metric cảnh báo sớm (ưu t
 Phase 8: Interpretability  →  Giải thích yếu tố rủi ro để hỗ trợ can thiệp
 ```
 
-Pipeline `experiment` mặc định ghi sản phẩm vào `reports/do-an/`.
+Sản phẩm nộp trong repo hiện được tổng hợp tại `reports/Thực hành/` và `reports/Đồ án/`.
 
 Nếu bạn muốn chạy bản v2 ngắn gọn theo yêu cầu mới, dùng:
 
@@ -112,10 +109,10 @@ python experiment/run_experiment_stages.py --phase 1
 python experiment/run_experiment_stages.py --phase 1 --max-rows 1000
 
 # Nếu cần ghi sang thư mục khác
-python experiment/run_experiment_stages.py --phase all --results-dir reports/thuc-hanh
+python experiment/run_experiment_stages.py --phase all --results-dir "reports/Thực hành"
 ```
 
-**Kết quả được lưu mặc định tại `reports/do-an/`:**
+**Ví dụ các output pipeline (tham chiếu để tạo sản phẩm nộp trong `reports/`):**
 
 | File                                           | Mô tả                                       |
 | ---------------------------------------------- | --------------------------------------------- |
@@ -128,10 +125,10 @@ python experiment/run_experiment_stages.py --phase all --results-dir reports/thu
 
 ---
 
-## 📦 Đồ án cuối kỳ – (`final/`)
+## 📦 Đồ án cuối kỳ – (`reports/Đồ án/`)
 
-Thư mục `final/` chứa source code đồ án hoàn chỉnh để nộp.
-Sản phẩm chạy (model, báo cáo đánh giá, artifacts) đặt tại `reports/do-an/`.
+Tài liệu và sản phẩm nộp đồ án được lưu tại `reports/Đồ án/`.
+Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `dashboard/`, `dataset/`.
 
 ---
 
@@ -319,6 +316,6 @@ kaggle datasets version -p "experiment" -m "Update: mô tả thay đổi"
 | ----------------- | ------------------------ | ------------------------------------------- |
 | `--phase`       | `all`                  | Phase cần chạy:`1`–`8` hoặc `all` |
 | `--dataset-dir` | `D:/MOOCCubeX_dataset` | Đường dẫn đến dataset gốc            |
-| `--results-dir` | `reports/do-an`        | Override thư mục lưu kết quả           |
+| `--results-dir` | `reports/Thực hành`    | Override thư mục lưu kết quả           |
 | `--max-rows`    | *(none)*               | Giới hạn số dòng để test nhanh        |
 | `--seed`        | `42`                   | Random seed để tái lập kết quả        |
