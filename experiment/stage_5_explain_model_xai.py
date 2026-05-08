@@ -144,7 +144,7 @@ def main():
         print("Feature importance could not be derived for the selected model.")
 
     try:
-        explainer = shap.Explainer(model, X_sample)
+        explainer = shap.Explainer(lambda x: model.predict_proba(x), shap.sample(X_sample, min(100, len(X_sample))))
         shap_values = explainer(X_sample)
         values_array = np.asarray(shap_values.values)
         if values_array.ndim == 3:
@@ -170,7 +170,7 @@ def main():
         row_idx = int(low_rows[0])
         print(f"Generating local SHAP explanation for row index: {row_idx}")
         try:
-            local_explainer = shap.Explainer(model, X_sample)
+            local_explainer = shap.Explainer(lambda x: model.predict_proba(x), shap.sample(X_sample, min(100, len(X_sample))))
             single_explanation = local_explainer(X_test.iloc[[row_idx]])
             local_values = np.asarray(single_explanation.values)
             local_base = np.asarray(single_explanation.base_values)

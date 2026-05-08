@@ -254,7 +254,8 @@ def build_preprocessing_dataset(df_timeline: pd.DataFrame, features: pd.DataFram
 
     def _coerce_numeric_for_corr(series: pd.Series) -> pd.Series:
         if pd.api.types.is_numeric_dtype(series):
-            return pd.to_numeric(series, errors="coerce")
+            numeric = pd.to_numeric(series, errors="coerce")
+            return numeric.astype(float)
 
         if pd.api.types.is_datetime64_any_dtype(series):
             return series.astype("int64").astype(float)
@@ -266,6 +267,35 @@ def build_preprocessing_dataset(df_timeline: pd.DataFrame, features: pd.DataFram
         encoded = pd.Series(pd.factorize(series.astype(str).fillna("Unknown"))[0], index=series.index, dtype=float)
         encoded.replace(-1, np.nan, inplace=True)
         return encoded
+
+    def _is_constant_or_empty(series: pd.Series) -> bool:
+        valid = series.dropna()
+        return valid.empty or valid.nunique(dropna=True) <= 1
+
+    def _safe_abs_corr(series_a: pd.Series, series_b: pd.Series) -> float:
+        if _is_constant_or_empty(series_a) or _is_constant_or_empty(series_b):
+            return -1.0
+
+        paired = pd.concat([series_a, series_b], axis=1).dropna()
+        if len(paired) < 2:
+            return -1.0
+
+        left = pd.to_numeric(paired.iloc[:, 0], errors="coerce").to_numpy(dtype=float)
+        right = pd.to_numeric(paired.iloc[:, 1], errors="coerce").to_numpy(dtype=float)
+
+        if np.isnan(left).all() or np.isnan(right).all():
+            return -1.0
+
+        left_std = float(np.std(left))
+        right_std = float(np.std(right))
+        if left_std == 0.0 or right_std == 0.0:
+            return -1.0
+
+        corr_matrix = np.corrcoef(left, right)
+        corr_value = corr_matrix[0, 1]
+        if np.isnan(corr_value):
+            return -1.0
+        return abs(float(corr_value))
 
     def _sort_columns_by_target_corr(df: pd.DataFrame) -> pd.DataFrame:
         if "target_label" not in df.columns:
@@ -281,8 +311,7 @@ def build_preprocessing_dataset(df_timeline: pd.DataFrame, features: pd.DataFram
                 continue
 
             candidate = _coerce_numeric_for_corr(df[col])
-            score = candidate.corr(target_numeric)
-            corr_scores[col] = abs(float(score)) if pd.notna(score) else -1.0
+            corr_scores[col] = _safe_abs_corr(candidate, target_numeric)
 
         ordered_columns = [PRIMARY_KEY]
         ordered_columns.extend(sorted(
