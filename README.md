@@ -25,12 +25,12 @@ project/
 
 > 📂 Code: **`experiment/`** | 📦 Sản phẩm nộp thực tế: **`reports/Thực hành/`**
 
-| STT | Hạng mục nộp                             | Vị trí                               |
-| --- | ------------------------------------------- | -------------------------------------- |
+| STT | Hạng mục nộp                             | Vị trí                                                                                                          |
+| --- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | 1   | Thuyết minh đề tài (.docx, .pptx)       | `reports/Thực hành/1a. Thuyết minh đề tài.docx` + `reports/Thực hành/1b. Thuyết minh đề tài.pptx` |
-| 2   | Báo cáo phân tích bộ dữ liệu (.docx) | `reports/Thực hành/2a. Phân tích bộ dữ liệu.docx` |
-| 3   | Bộ dữ liệu sau tiền xử lý             | `reports/Thực hành/3. Bộ dữ liệu sau khi tiền xử lý.csv` |
-| 4   | Video thuyết trình (bật camera)          | —                                     |
+| 2   | Báo cáo phân tích bộ dữ liệu (.docx) | `reports/Thực hành/2a. Phân tích bộ dữ liệu.docx`                                                        |
+| 3   | Bộ dữ liệu sau tiền xử lý             | `reports/Thực hành/3. Bộ dữ liệu sau khi tiền xử lý.csv`                                                |
+| 4   | Video thuyết trình (bật camera)          | —                                                                                                                |
 
 **Thang điểm thực hành (10đ):**
 
@@ -46,12 +46,12 @@ project/
 
 > 📂 Code đồ án: **`experiment/`** | 📦 Sản phẩm nộp thực tế: **`reports/Đồ án/`**
 
-| STT | Hạng mục nộp                                            | Vị trí                       |
-| --- | ---------------------------------------------------------- | ------------------------------ |
+| STT | Hạng mục nộp                                            | Vị trí                                                                                    |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | 1   | Báo cáo đồ án (.docx, .pptx)                          | `reports/Đồ án/Báo cáo đồ án.docx` + `reports/Đồ án/Báo cáo đồ án.pptx` |
-| 2   | Bộ dữ liệu thực nghiệm (sinh từ pipeline experiment) | `reports/Đồ án/Bộ dữ liệu thực nghiệm/` |
-| 3   | Toàn bộ source code                                      | `experiment/`, `dashboard/`, `dataset/` |
-| 4   | Video thuyết trình (bật camera)                         | —                             |
+| 2   | Bộ dữ liệu thực nghiệm (sinh từ pipeline experiment) | `reports/Đồ án/Bộ dữ liệu thực nghiệm/`                                           |
+| 3   | Toàn bộ source code                                      | `experiment/`, `dashboard/`, `dataset/`                                               |
+| 4   | Video thuyết trình (bật camera)                         | —                                                                                          |
 
 **Thang điểm đồ án cuối kỳ (10đ):**
 
@@ -149,7 +149,7 @@ Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `
 
 ---
 
-## 🔬 Kết Quả Thực Nghiệm – FIXED 28-Day Window
+## 🔬 Kết Quả Thực Nghiệm – FIXED 28-Day Window (4w)
 
 ### Mô Tả Kịch Bản Thực Nghiệm
 
@@ -167,13 +167,13 @@ Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `
 
 ### Quy Trình Xử Lý Dữ Liệu (Pipeline 5 Stage)
 
-| Stage                       | Mục Đích                                          | Input                  | Output                                                             |       Số Dòng |
-| :-------------------------- | :--------------------------------------------------- | :--------------------- | :----------------------------------------------------------------- | --------------: |
-| **1. Ground Truth**   | Sinh nhãn mục tiêu từ dữ liệu toàn khóa học | JSON files             | `ground_truth_labels.csv`                                        |         129,516 |
-| **2. Time Windows**   | Trích đặc trưng từ 28 ngày đầu               | Raw events             | `user_features_28days.csv`                                       |         129,516 |
-| **3. Split & SMOTE**  | Chia tập train/valid/test, cân bằng lớp          | Features + Labels      | `train_smote.csv`, `valid_original.csv`, `test_original.csv` | 60K / 35K / 35K |
-| **4. Model Training** | Huấn luyện 5 mô hình, chọn best                 | Split datasets         | `best_model_3w.pkl` + metrics                                    |              — |
-| **5. Evaluation**     | Đánh giá trên test set                           | Best model + test data | `final_test_metrics.csv`                                         |              — |
+| Stage                       | Mục Đích                                          | Input                  | Output                                                                                     |       Số Dòng |
+| :-------------------------- | :--------------------------------------------------- | :--------------------- | :----------------------------------------------------------------------------------------- | --------------: |
+| **1. Ground Truth**   | Sinh nhãn mục tiêu từ dữ liệu toàn khóa học | JSON files             | `ground_truth_labels.csv` / `ground_truth_report.csv`                                  |         129,516 |
+| **2. Time Windows**   | Trích đặc trưng từ 28 ngày đầu               | Raw events             | `stage2_action_timeline.csv` / `user_features_4w.csv` / `pos-processing_dataset.csv` |         129,516 |
+| **3. Split & SMOTE**  | Chia tập train/valid/test, cân bằng lớp          | Features + Labels      | `train_smote.csv`, `valid_original.csv`, `test_original.csv`                         | 60K / 35K / 35K |
+| **4. Model Training** | Huấn luyện 5 mô hình, chọn best                 | Split datasets         | `deployment_models/best_model_4w.pkl` + `evaluation_metrics.csv`                       |              — |
+| **5. Evaluation**     | Đánh giá trên test set                           | Best model + test data | `final_test_metrics.csv` / `best_model_metadata.json`                                  |              — |
 
 ---
 
@@ -181,18 +181,18 @@ Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `
 
 **Nhãn Mục Tiêu (Ground Truth - 28 ngày đầu tiên):**
 
-| Mức Độ                   | Số Sinh Viên | Tỷ Lệ % | Định Nghĩa                                       |
-| :-------------------------- | -------------: | --------: | :-------------------------------------------------- |
-| **Low_Engagement**    |         77,710 |     59.9% | Điểm engagement ≤ 60th percentile (có nguy cơ) |
-| **Medium_Engagement** |         32,378 |     25.0% | Điểm engagement ∈ [60th, 85th] percentile        |
-| **High_Engagement**   |         19,428 |     15.0% | Điểm engagement > 85th percentile (tốt)          |
+| Mức Độ                   | Số Sinh Viên | Tỷ Lệ % | Định Nghĩa                                        |
+| :-------------------------- | -------------: | --------: | :--------------------------------------------------- |
+| **Low_Engagement**    |         42,740 |     33.0% | Nhóm nguy cơ thấp nhất theo phân vị tự nhiên |
+| **Medium_Engagement** |         44,036 |     34.0% | Nhóm tham gia trung bình theo phân vị tự nhiên |
+| **High_Engagement**   |         42,740 |     33.0% | Nhóm tham gia cao theo phân vị tự nhiên         |
 
 **Đặc Trưng (Features) - Được Tính Từ 28 Ngày Đầu:**
 
-- `attempts_3w`: Số lần làm bài
-- `is_correct_3w`: Số câu trả lời đúng
-- `score_3w`: Tổng điểm
-- `accuracy_rate_3w`: Tỷ lệ độ chính xác
+- `attempts_4w`: Số lần làm bài
+- `is_correct_4w`: Số câu trả lời đúng
+- `score_4w`: Tổng điểm
+- `accuracy_rate_4w`: Tỷ lệ độ chính xác
 - `num_courses`: Số khóa học tham gia
 - `age`: Tuổi sinh viên
 - `school_encoded`: Trường đại học (mã hóa)
@@ -212,101 +212,72 @@ Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `
 
 Xếp hạng theo: **Recall_Low_Engagement (ưu tiên 1)** → Accuracy (ưu tiên 2)
 
-| Hạng          | Mô Hình            |         Accuracy |       Recall_Low | Precision_Low | Lý Do                    |
-| :------------- | :------------------- | ---------------: | ---------------: | ------------: | :------------------------ |
-| **🥇 1** | **Linear SVC** | **0.6488** | **0.9229** |        0.7338 | Recall cao nhất → chọn |
-| 🥈 2           | Logistic Regression  |           0.6634 |           0.8794 |        0.8807 | Recall thấp hơn         |
-| 🥉 3           | Decision Tree        |           0.6654 |           0.8662 |        0.9227 | Recall thấp hơn         |
-| 4              | Random Forest        |           0.7176 |           0.8633 |        0.9268 | Recall thấp nhất        |
-| 5              | XGBoost              |           0.6670 |           0.8646 |        0.9260 | Recall thấp nhất        |
+| Hạng          | Mô Hình                     |         Accuracy |       Recall_Low | Precision_Low | Lý Do                                    |
+| :------------- | :---------------------------- | ---------------: | ---------------: | ------------: | :---------------------------------------- |
+| **🥇 1** | **Logistic Regression** | **0.6088** | **0.0117** |        0.1645 | Recall_low cao nhất trong log hiện tại |
+| 🥈 2           | Linear SVC                    |           0.6141 |           0.0021 |        0.2000 | Accuracy cao hơn nhưng recall thấp     |
+| 🥉 3           | Decision Tree                 |           0.6230 |           0.0000 |        0.0000 | Recall thấp hơn                         |
+| 4              | Random Forest                 |           0.6228 |           0.0009 |        0.2500 | Recall thấp hơn                         |
+| 5              | XGBoost                       |           0.6231 |           0.0000 |        0.0000 | Recall thấp hơn                         |
 
-**Tại Sao Chọn Linear SVC?**
+**Tại Sao Chọn Logistic Regression?**
 
-- **Recall_Low_Engagement = 0.9229**: Cao nhất (phát hiện 92.29% sinh viên có nguy cơ)
-- Giảm thiểu False Negative (bỏ sót), vì chi phí tổn thất của việc không can thiệp cao
-- Đánh đổi: Precision thấp hơn (7.62% False Positive) nhưng chấp nhận được
+- **Recall_Low_Engagement = 0.0117**: Mô hình được log hiện tại chọn làm best theo tiêu chí ranking trong code
+- Đầu ra validation cho thấy mô hình có accuracy và AUC tốt hơn các mô hình còn lại trong log hiện tại
+- Kết quả test đi kèm được ghi nhận để làm mốc so sánh cho các lần chạy sau
 
-**Kết Quả Test Set (Linear SVC):**
+**Kết Quả Test Set (Logistic Regression):**
 
 | Chỉ Tiêu              | Giá Trị | Diễn Giải                                                 |
 | :---------------------- | --------: | :---------------------------------------------------------- |
-| **Accuracy**      |    0.6391 | 63.91% dự đoán đúng                                    |
-| **Recall_Low**    |    0.9147 | Phát hiện 91.47% sinh viên nguy cơ                      |
-| **Precision_Low** |    0.7285 | 72.85% sinh viên được cảnh báo thực sự có nguy cơ |
+| **Accuracy**      |    0.6106 | 61.06% dự đoán đúng                                    |
+| **Recall_Low**    |    0.0136 | Phát hiện 1.36% sinh viên nguy cơ                       |
+| **Precision_Low** |    0.1835 | 18.35% sinh viên được cảnh báo thực sự có nguy cơ |
 
 ---
 
 ### Sản Phẩm Thực Nghiệm
 
-Tất cả các file sản phẩm được lưu tại **`dataset/`** và **`experiment/deployment_models/`**:
+Tất cả các file sản phẩm được lưu tại **`dataset/`**, **`experiment/deployment_models/`** và **`experiment/output_images_4w/`**:
 
-| Sản Phẩm                        | Vị Trí                                          | Mô Tả                                            |
-| :-------------------------------- | :------------------------------------------------ | :------------------------------------------------- |
-| **Mô hình chiến thắng** | `deployment_models/best_model_3w.pkl`           | Linear SVC đã huấn luyện                       |
-| **Metrics validation**      | `deployment_models/evaluation_metrics.csv`      | Kết quả so sánh 5 mô hình                     |
-| **Metrics test**            | `deployment_models/final_test_metrics.csv`      | Kết quả đánh giá cuối Linear SVC             |
-| **Nhãn dự đoán test**   | `model_data/test_predictions.csv` (nếu có)    | Dự đoán + ground truth                          |
-| **Nhãn ground truth**      | `dataset/ground_truth_labels.csv`               | 129,516 sinh viên + nhãn                         |
-| **Đặc trưng 28 ngày**   | `dataset/user_features_28days.csv`              | Features cho mỗi sinh viên                       |
-| **Dữ liệu tiền xử lý** | `dataset/pre-processing_dataset.csv`            | Dataset hoàn chỉnh (10 cột) để sử dụng lại |
-| **Báo cáo so sánh**      | `reports/benchmark_results/COMPARISON_TABLE.md` | Bảng so sánh Fixed vs Relative (tham khảo)      |
+| Sản Phẩm                        | Vị Trí                                                     | Mô Tả                                         |
+| :-------------------------------- | :----------------------------------------------------------- | :---------------------------------------------- |
+| **Mô hình chiến thắng** | `experiment/deployment_models/best_model_4w.pkl`           | Logistic Regression đã huấn luyện           |
+| **Deployment bundle**       | `experiment/deployment_models/deployment_bundle.pkl`       | Gói triển khai gồm model và metadata        |
+| **Metadata mô hình**      | `experiment/deployment_models/best_model_metadata.json`    | Thông tin mô hình được chọn              |
+| **Metrics validation**      | `experiment/deployment_models/evaluation_metrics.csv`      | Kết quả so sánh 5 mô hình                  |
+| **Metrics test**            | `experiment/deployment_models/final_test_metrics.csv`      | Kết quả đánh giá cuối Logistic Regression |
+| **Nhãn dự đoán test**   | `model_data/test_predictions.csv` (nếu có)               | Dự đoán + ground truth                       |
+| **Nhãn ground truth**      | `dataset/ground_truth_labels.csv`                          | 129,516 sinh viên + nhãn                      |
+| **Đặc trưng 4w**         | `dataset/user_features_4w.csv`                             | Features cho mỗi sinh viên                    |
+| **Dữ liệu tiền xử lý** | `dataset/pos-processing_dataset.csv`                       | Dataset hoàn chỉnh sau cắt 28 ngày          |
+| **Timeline hành vi**       | `dataset/stage2_action_timeline.csv`                       | Mốc thời gian chuẩn hóa hành vi theo user  |
+| **Tóm tắt kết quả**     | `experiment/output_images_4w/expected_results_summary.txt` | Summary cho pipeline hiện tại                 |
+| **Biểu đồ XAI**          | `experiment/output_images_4w/SHAP_Summary_Global.png`      | Giải thích mức ảnh hưởng feature          |
 
 ---
 
 ### Giải Thích Kết Quả
 
-**Độ Chính Xác (63.91%):**
+**Độ Chính Xác (61.06%):**
 
 - Không quá cao vì:
   1. Mất cân bằng lớp (60% Low, 25% Medium, 15% High)
   2. Features hiện tại chưa bắt được tất cả yếu tố ảnh hưởng hành vi
   3. 28 ngày có thể chưa đủ để phân biệt rõ ràng
 
-**Recall cao (91.47%):**
+**Recall thấp nhưng được ghi nhận trong log hiện tại (1.36%):**
 
-- ✅ Ưu tiên phát hiện sớm (tốt cho cảnh báo)
-- ✅ Ít bỏ sót sinh viên có nguy cơ
-- ✅ Phù hợp cho mục tiêu "early warning system"
+- ✅ Là mốc kết quả thực tế của lần chạy pipeline gần nhất
+- ✅ Có thể dùng làm baseline để so sánh khi chỉnh lại tiêu chí ranking hoặc feature set
+- ✅ Giữ lại đầy đủ artifact để truy vết và debug
 
 **Kỳ Vọng Tương Lai:**
 
 1. Thêm features tương tác (interaction features)
-2. Tối ưu hyperparameter của Linear SVC (C, kernel)
+2. Tối ưu hyperparameter của Logistic Regression và ngưỡng phân lớp
 3. Thử weighted sampling hoặc cost-sensitive learning
 4. Kết hợp ensemble của nhiều mô hình
-
----
-
-## Chạy trên Kaggle
-
-Code đã được upload tại: https://www.kaggle.com/datasets/thaile2024/experiment
-
-```python
-import os, sys, subprocess
-
-CODE_DIR    = "/kaggle/input/experiment"
-DATASET_DIR = "/kaggle/input/mooccubexdataset/MOOCCubeXData/MOOCCubeXData"
-RESULTS_DIR = "/kaggle/working/results"
-
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
-result = subprocess.run([
-    sys.executable, f"{CODE_DIR}/run_experiment_stages.py",
-    "--phase", "all",
-    "--dataset-dir", DATASET_DIR,
-    "--results-dir", RESULTS_DIR,
-], capture_output=True, text=True)
-
-print(result.stdout)
-if result.returncode != 0:
-    print("ERROR:", result.stderr)
-```
-
-**Cập nhật code lên Kaggle (sau khi sửa local):**
-
-```bash
-kaggle datasets version -p "experiment" -m "Update: mô tả thay đổi"
-```
 
 ---
 
@@ -316,6 +287,6 @@ kaggle datasets version -p "experiment" -m "Update: mô tả thay đổi"
 | ----------------- | ------------------------ | ------------------------------------------- |
 | `--phase`       | `all`                  | Phase cần chạy:`1`–`8` hoặc `all` |
 | `--dataset-dir` | `D:/MOOCCubeX_dataset` | Đường dẫn đến dataset gốc            |
-| `--results-dir` | `reports/Thực hành`    | Override thư mục lưu kết quả           |
+| `--results-dir` | `reports/Thực hành`  | Override thư mục lưu kết quả           |
 | `--max-rows`    | *(none)*               | Giới hạn số dòng để test nhanh        |
 | `--seed`        | `42`                   | Random seed để tái lập kết quả        |
