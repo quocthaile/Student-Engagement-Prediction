@@ -200,6 +200,51 @@ def run_step(script_name: str, env_overrides: dict | None = None) -> None:
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode != 0:
         raise SystemExit(result.returncode)
+    if script_name == "stage_4_model_training_eval.py":
+        print_stage_4_summary()
+
+
+def print_stage_4_summary() -> None:
+    if not BEST_MODEL_METADATA_FILE.exists():
+        print(f"Stage 4 summary skipped: missing {BEST_MODEL_METADATA_FILE}")
+        return
+
+    metadata = _load_best_model_metadata()
+    validation_metrics = metadata.get("validation_metrics", {}) or {}
+    test_metrics = metadata.get("test_metrics", {}) or {}
+    selection_policy = metadata.get("selection_policy", {}) or {}
+
+    print("-" * 80)
+    print("STAGE 4 SELECTION SUMMARY")
+    print(f"Selected model: {metadata.get('model_name')} ({metadata.get('model_class')})")
+    print(f"Selection split: {selection_policy.get('source_split', 'valid')}")
+    print(f"Decision policy: {selection_policy.get('decision_policy')}")
+    print(f"Low threshold: {selection_policy.get('low_threshold')}")
+    print("Validation metrics used for selection:")
+    print(
+        "  "
+        f"Recall_Low={validation_metrics.get('Recall_Low_Engagement')}, "
+        f"Precision_Low={validation_metrics.get('Precision_Low_Engagement')}, "
+        f"F2_Low={validation_metrics.get('F2_Low_Engagement')}, "
+        f"F1_Macro={validation_metrics.get('F1_Macro')}, "
+        f"Balanced_Accuracy={validation_metrics.get('Balanced_Accuracy')}, "
+        f"Accuracy={validation_metrics.get('Accuracy')}"
+    )
+    print("Final held-out test metrics:")
+    print(
+        "  "
+        f"Recall_Low={test_metrics.get('Recall_Low_Engagement')}, "
+        f"Precision_Low={test_metrics.get('Precision_Low_Engagement')}, "
+        f"F2_Low={test_metrics.get('F2_Low_Engagement')}, "
+        f"F1_Macro={test_metrics.get('F1_Macro')}, "
+        f"Balanced_Accuracy={test_metrics.get('Balanced_Accuracy')}, "
+        f"Accuracy={test_metrics.get('Accuracy')}, "
+        f"AUC_ROC_OVR={test_metrics.get('AUC_ROC_OVR')}"
+    )
+    print(f"Validation comparison CSV: {DEPLOYMENT_DIR / 'evaluation_metrics.csv'}")
+    print(f"Final test metrics CSV: {DEPLOYMENT_DIR / 'final_test_metrics.csv'}")
+    print(f"Detailed stage 4 log: {DEPLOYMENT_DIR / 'stage_4_training_eval.log'}")
+    print("-" * 80)
 
 
 def interactive_menu():

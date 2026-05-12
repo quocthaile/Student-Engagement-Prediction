@@ -1,0 +1,121 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36">
+  <diagram id="hBBJvVHyNq18rCkxvglu" name="Page-2">
+    <mxGraphModel dx="2127" dy="1502" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-1" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="STAGE 5 &amp; 6: EVALUATION &amp; XAI" vertex="1">
+          <mxGeometry height="148" width="1120" x="20" y="737" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-2" parent="5vYVJl5qkFgT6W1rE3mJ-1" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Evaluation Metrics&#xa;Recall-Low Priority, F1 Macro" vertex="1">
+          <mxGeometry height="78" width="316.86615886833516" x="56.06093579978237" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-3" parent="5vYVJl5qkFgT6W1rE3mJ-1" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Global Interpretability&#xa;Feature Importance" vertex="1">
+          <mxGeometry height="78" width="269.3362350380849" x="464.33079434167576" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-4" parent="5vYVJl5qkFgT6W1rE3mJ-1" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Local Interpretability&#xa;SHAP Values" vertex="1">
+          <mxGeometry height="78" width="259.5865070729053" x="825.0707290533189" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-5" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-1" source="5vYVJl5qkFgT6W1rE3mJ-2" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-3" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-6" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-1" source="5vYVJl5qkFgT6W1rE3mJ-3" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-4" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-7" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="STAGE 4: MODEL TRAINING &amp; EXPORT" vertex="1">
+          <mxGeometry height="148" width="1120" x="20" y="539" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-8" parent="5vYVJl5qkFgT6W1rE3mJ-7" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Benchmarking 5 Models&#xa;LogReg, SVC, Tree, RF, XGB" vertex="1">
+          <mxGeometry height="78" width="296.6423357664233" x="53.72262773722627" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-9" parent="5vYVJl5qkFgT6W1rE3mJ-7" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Algorithm Selection&#xa;Logistic Regression Winner" vertex="1">
+          <mxGeometry height="78" width="291.970802919708" x="437.95620437956194" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-10" parent="5vYVJl5qkFgT6W1rE3mJ-7" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Deployment Export&#xa;deployment_bundle.pkl" vertex="1">
+          <mxGeometry height="78" width="268.6131386861313" x="816.3503649635036" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-11" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-7" source="5vYVJl5qkFgT6W1rE3mJ-8" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-9" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-12" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-7" source="5vYVJl5qkFgT6W1rE3mJ-9" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-10" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="STAGE 3: DATA SPLITTING &amp; BALANCING" vertex="1">
+          <mxGeometry height="148" width="1120" x="20" y="341" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-14" parent="5vYVJl5qkFgT6W1rE3mJ-13" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Stratified Split&#xa;80:10:10 Train/Valid/Test" vertex="1">
+          <mxGeometry height="78" width="457.0657672849915" x="86.88026981450253" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-15" parent="5vYVJl5qkFgT6W1rE3mJ-13" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Imbalance Handling&#xa;SMOTE on Train Set" vertex="1">
+          <mxGeometry height="78" width="379.6290050590219" x="685.5986509274874" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-16" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-13" source="5vYVJl5qkFgT6W1rE3mJ-14" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-15" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-17" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="STAGE 1 &amp; 2: GROUND TRUTH &amp; EARLY FEATURES" vertex="1">
+          <mxGeometry height="167" width="1123" x="20" y="124" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-18" parent="5vYVJl5qkFgT6W1rE3mJ-17" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=10;strokeWidth=2;whiteSpace=wrap;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="MOOCCubeX&#xa;Repository" vertex="1">
+          <mxGeometry height="97" width="102" x="46" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-19" parent="5vYVJl5qkFgT6W1rE3mJ-17" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Data Aggregation&#xa;Full-Course Event Logs" vertex="1">
+          <mxGeometry height="78" width="222" x="223" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-20" parent="5vYVJl5qkFgT6W1rE3mJ-17" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Ground Truth Generation&#xa;WES Percentile 33/67" vertex="1">
+          <mxGeometry height="78" width="239" x="520" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-21" parent="5vYVJl5qkFgT6W1rE3mJ-17" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Time Windowing &amp;amp; Features&#xa;28-Day Cutoff, 6 Features" vertex="1">
+          <mxGeometry height="78" width="260" x="834" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-22" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-17" source="5vYVJl5qkFgT6W1rE3mJ-18" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-19" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-23" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-17" source="5vYVJl5qkFgT6W1rE3mJ-19" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-20" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-24" edge="1" parent="5vYVJl5qkFgT6W1rE3mJ-17" source="5vYVJl5qkFgT6W1rE3mJ-20" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-21" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-25" parent="1" style="whiteSpace=wrap;strokeWidth=2;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="MOOC EARLY WARNING PREDICTION SYSTEM" vertex="1">
+          <mxGeometry height="54" width="1120" x="21" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-26" edge="1" parent="1" source="5vYVJl5qkFgT6W1rE3mJ-25" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-17" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-27" edge="1" parent="1" source="5vYVJl5qkFgT6W1rE3mJ-17" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-13" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-28" edge="1" parent="1" source="5vYVJl5qkFgT6W1rE3mJ-13" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-7" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5vYVJl5qkFgT6W1rE3mJ-29" edge="1" parent="1" source="5vYVJl5qkFgT6W1rE3mJ-7" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" target="5vYVJl5qkFgT6W1rE3mJ-1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

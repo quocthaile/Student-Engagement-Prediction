@@ -1,21 +1,23 @@
-Model: Logistic Regression
+Model: XGBoost
 Window mode: fixed, observation_days=28
 Label percentiles: (0.33, 0.67)
 Train class ratios: {'Low_Engagement': 1.0, 'Medium_Engagement': 1.0, 'High_Engagement': 1.0}
 Enable SMOTE: True
-Accuracy: 0.6177
-Balanced accuracy: 0.6149
-Macro F1: 0.5064
-Weighted F1: 0.5081
-Low-class precision: 0.2049
-Low-class recall: 0.0098
-Low-class F1: 0.0188
+Decision policy: low_threshold_predict_proba
+Low threshold: 0.35
+Accuracy: 0.5764
+Balanced accuracy: 0.5822
+Macro F1: 0.4701
+Weighted F1: 0.4654
+Low-class precision: 0.4503
+Low-class recall: 0.7550
+Low-class F1: 0.5641
 
 Classification report:
                    precision    recall  f1-score       support
-High_Engagement     0.739724  0.938933  0.827508   4274.000000
-Low_Engagement      0.204878  0.009827  0.018754   4274.000000
-Medium_Engagement   0.538924  0.896004  0.673034   4404.000000
-accuracy            0.617742  0.617742  0.617742      0.617742
-macro avg           0.494508  0.614921  0.506432  12952.000000
-weighted avg        0.494954  0.617742  0.508104  12952.000000
+High_Engagement     0.732929  0.989471  0.842095   4274.000000
+Low_Engagement      0.450258  0.755030  0.564112   4274.000000
+Medium_Engagement   0.600000  0.002044  0.004073   4404.000000
+accuracy            0.576359  0.576359  0.576359      0.576359
+macro avg           0.594396  0.582182  0.470093  12952.000000
+weighted avg        0.594452  0.576359  0.465416  12952.000000

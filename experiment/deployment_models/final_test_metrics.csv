@@ -1,2 +1,2 @@
-﻿Accuracy,Balanced_Accuracy,F1_Macro,F1_Weighted,Precision_Macro,Recall_Macro,Precision_Low_Engagement,Recall_Low_Engagement,F1_Low_Engagement,AUC_ROC_OVR,Model
-0.6177,0.6149,0.5064,0.5081,0.4945,0.6149,0.2049,0.0098,0.0188,0.7811,Logistic Regression
+﻿Accuracy,Balanced_Accuracy,F1_Macro,F1_Weighted,Precision_Macro,Recall_Macro,Precision_Low_Engagement,Recall_Low_Engagement,F1_Low_Engagement,F2_Low_Engagement,AUC_ROC_OVR,Model,Decision_Policy,Low_Threshold,Score_Source
+0.5764,0.5822,0.4701,0.4654,0.5944,0.5822,0.4503,0.755,0.5641,0.665,0.7958,XGBoost,low_threshold_predict_proba,0.35,predict_proba

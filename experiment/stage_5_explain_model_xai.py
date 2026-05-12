@@ -18,6 +18,38 @@ from config import (
 )
 
 
+def get_decision_scores(model, X: pd.DataFrame):
+    if hasattr(model, "predict_proba"):
+        try:
+            return model.predict_proba(X)
+        except Exception:
+            return None
+    if hasattr(model, "decision_function"):
+        try:
+            scores = np.asarray(model.decision_function(X))
+            if scores.ndim == 1:
+                scores = np.vstack([-scores, scores]).T
+            return scores
+        except Exception:
+            return None
+    return None
+
+
+def predict_with_bundle_policy(model, X: pd.DataFrame, bundle: dict) -> np.ndarray:
+    y_pred = np.asarray(model.predict(X)).copy()
+    low_threshold = bundle.get("low_threshold")
+    low_idx = bundle.get("low_class_index")
+    if low_threshold is None or low_idx is None:
+        return y_pred
+
+    scores = get_decision_scores(model, X)
+    if scores is None or np.asarray(scores).ndim != 2 or scores.shape[1] <= int(low_idx):
+        return y_pred
+
+    y_pred[np.asarray(scores)[:, int(low_idx)] >= float(low_threshold)] = int(low_idx)
+    return y_pred
+
+
 def main():
     print("=" * 80)
     print("STEP 5: EXPECTED RESULTS, PROPOSED MODEL, AND XAI")
@@ -74,7 +106,7 @@ def main():
     print(f"Deployment artifact: {MODEL_BUNDLE_FILE}")
     print("Expected labels:", ", ".join(bundle["target_labels"]))
 
-    y_pred = model.predict(X_test)
+    y_pred = predict_with_bundle_policy(model, X_test, bundle)
     labels_list = list(range(len(label_encoder.classes_)))
     target_label = "Low_Engagement"
     low_idx = int(np.where(label_encoder.classes_ == target_label)[0][0])
@@ -95,6 +127,8 @@ def main():
         f"Label percentiles: {LABEL_PERCENTILES}",
         f"Train class ratios: {TRAIN_CLASS_RATIOS}",
         f"Enable SMOTE: {ENABLE_SMOTE}",
+        f"Decision policy: {bundle.get('decision_policy', 'default_argmax')}",
+        f"Low threshold: {bundle.get('low_threshold', 'default')}",
         f"Accuracy: {accuracy:.4f}",
         f"Balanced accuracy: {balanced_acc:.4f}",
         f"Macro F1: {f1_score(y_test, y_pred, average='macro', zero_division=0):.4f}",
