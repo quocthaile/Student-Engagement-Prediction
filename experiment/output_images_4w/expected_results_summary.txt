@@ -1,23 +1,23 @@
-Model: XGBoost
+Model: Random Forest Deep Balanced
 Window mode: fixed, observation_days=28
 Label percentiles: (0.33, 0.67)
 Train class ratios: {'Low_Engagement': 1.0, 'Medium_Engagement': 1.0, 'High_Engagement': 1.0}
 Enable SMOTE: True
 Decision policy: low_threshold_predict_proba
-Low threshold: 0.35
-Accuracy: 0.5764
-Balanced accuracy: 0.5822
-Macro F1: 0.4701
-Weighted F1: 0.4654
-Low-class precision: 0.4503
-Low-class recall: 0.7550
-Low-class F1: 0.5641
+Low threshold: 0.05
+Accuracy: 0.3902
+Balanced accuracy: 0.3942
+Macro F1: 0.2761
+Weighted F1: 0.2734
+Low-class precision: 0.3511
+Low-class recall: 1.0000
+Low-class F1: 0.5198
 
 Classification report:
-                   precision    recall  f1-score       support
-High_Engagement     0.732929  0.989471  0.842095   4274.000000
-Low_Engagement      0.450258  0.755030  0.564112   4274.000000
-Medium_Engagement   0.600000  0.002044  0.004073   4404.000000
-accuracy            0.576359  0.576359  0.576359      0.576359
-macro avg           0.594396  0.582182  0.470093  12952.000000
-weighted avg        0.594452  0.576359  0.465416  12952.000000
+                   precision    recall  f1-score      support
+High_Engagement     1.000000  0.182499  0.308666   4274.00000
+Low_Engagement      0.351134  1.000000  0.519762   4274.00000
+Medium_Engagement   0.000000  0.000000  0.000000   4404.00000
+accuracy            0.390210  0.390210  0.390210      0.39021
+macro avg           0.450378  0.394166  0.276143  12952.00000
+weighted avg        0.445857  0.390210  0.273371  12952.00000

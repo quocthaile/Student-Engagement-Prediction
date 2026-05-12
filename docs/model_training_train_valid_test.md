@@ -74,31 +74,36 @@ Quy trinh hien tai:
    - Random Forest
    - XGBoost
 5. Moi mo hinh sau khi fit train se duoc danh gia tren valid.
-6. Ket qua valid duoc ghi vao `experiment/deployment_models/evaluation_metrics.csv`.
-7. Chon best model theo thu tu uu tien:
+6. Stage 4 co tune threshold cho lop `Low_Engagement` tren valid neu model co `predict_proba` hoac `decision_function`.
+7. Ket qua valid duoc ghi vao `experiment/deployment_models/evaluation_metrics.csv` va dung de chon model/threshold.
+8. Chon best model theo thu tu uu tien:
+   - `Recall_Low_Engagement >= 0.60`
    - `Recall_Low_Engagement`
+   - `Precision_Low_Engagement`
+   - `F1_Low_Engagement`
+   - `AUC_ROC_OVR`
    - `F1_Macro`
    - `Balanced_Accuracy`
    - `Accuracy`
-8. Chi sau khi da chon best model moi chay final evaluation tren test.
-9. Ket qua test duoc ghi vao:
+9. Chi sau khi da khoa best model va threshold tu valid moi chay final evaluation tren test.
+10. Ket qua test duoc ghi vao:
    - `final_test_metrics.csv`
    - `<BestModel>_test_predictions.csv`
    - `best_model_test_classification_report.csv`
    - confusion matrix trong `experiment/output_images_4w/`
-10. Dong goi mo hinh vao:
+11. Dong goi mo hinh vao:
    - `best_model_4w.pkl`
    - `deployment_bundle.pkl`
    - `best_model_metadata.json`
 
-Ket qua hien tai:
+Ket qua hien tai trong stage 4 duoc log theo bang ranking validation va bang test cuoi cung, voi cac cot chinh:
 
-| Tap | Model | Accuracy | Balanced Accuracy | F1 Macro | Recall Low | Precision Low | AUC OVR |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Valid | Logistic Regression | 0.6150 | 0.6122 | 0.5045 | 0.0108 | 0.2044 | 0.7801 |
-| Test | Logistic Regression | 0.6177 | 0.6149 | 0.5064 | 0.0098 | 0.2049 | 0.7811 |
+| Tap | Model | Recall Low | Precision Low | F1 Low | AUC OVR | F1 Macro | Balanced Acc | Accuracy |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Valid | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` |
+| Test | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` | xem `final_test_metrics.csv` |
 
-Diem can nhan manh: trong pipeline thuc nghiem, test dang duoc dung dung vai tro la tap danh gia cuoi cung. Viec chon Logistic Regression den tu valid, khong den tu test.
+Diem can nhan manh: trong pipeline thuc nghiem, valid la tap duy nhat duoc dung de chon model, chon threshold va xep hang ung vien; test chi duoc dung mot lan sau khi da khoa cau hinh.
 
 ## 4. Khac biet voi `dashboard/trainer.py`
 
@@ -117,10 +122,10 @@ Voi muc tieu bao cao thuc nghiem, nen xem `experiment/stage_4_model_training_eva
 
 ## 5. Van de hien tai trong ket qua
 
-Ket qua moi nhat cho thay Accuracy khoang 61-62%, AUC khoang 0.78, nhung `Recall_Low_Engagement` rat thap:
+Ket qua moi nhat cho thay Accuracy va AUC co the o muc kha on, nhung `Recall_Low_Engagement` rat thap neu dung decision policy mac dinh:
 
-- valid: 0.0108
-- test: 0.0098
+- valid: theo `evaluation_metrics.csv`
+- test: theo `final_test_metrics.csv`
 
 Voi bai toan canh bao som sinh vien co nguy co, recall lop `Low_Engagement` rat quan trong. Recall gan 1% co nghia la trong 100 sinh vien Low thuc su, mo hinh chi bat duoc khoang 1 sinh vien. Vi vay, du accuracy nhin kha on, model chua dat yeu cau nghiep vu neu muc tieu la canh bao som.
 
@@ -179,7 +184,7 @@ Nen thu cac huong sau va moi lan chi so sanh bang valid:
    - Co the quy dinh neu score/probability cua `Low_Engagement` vuot nguong `t` thi gan Low.
    - Quet `t` tren valid va chon nguong dat recall Low muc tieu, vi du 0.50, 0.70, dong thoi kiem soat precision va false positive.
 4. Selection metric:
-   - Neu muc tieu nghiep vu la canh bao som, nen dung `Recall_Low_Engagement` hoac `F_beta` voi beta > 1 cho lop Low.
+   - Neu muc tieu nghiep vu la canh bao som, nen dung `Recall_Low_Engagement`, `Precision_Low_Engagement`, `F1_Low_Engagement` va `AUC_ROC_OVR`.
    - Khong nen de Accuracy quyet dinh model neu recall Low la yeu cau chinh.
 5. Feature/label:
    - Thu them feature xu huong theo thoi gian: so lan hoc moi tuan, do giam/tang attempts, ngay hoc gan nhat, so ngay active.
@@ -194,6 +199,7 @@ Moi cau hinh nen ghi lai:
 - valid Recall Low;
 - valid Precision Low;
 - valid F1 Low;
+- valid AUC OVR;
 - valid F1 Macro;
 - valid Balanced Accuracy.
 
@@ -203,7 +209,7 @@ Sau khi co ket qua valid, chon cau hinh theo mot quy tac ro rang, vi du:
 
 1. Loc cac model co `Recall_Low_Engagement >= 0.60`.
 2. Trong nhom do, chon model co `Precision_Low_Engagement` cao nhat.
-3. Neu khong co model nao dat recall muc tieu, chon model co `F2_Low_Engagement` cao nhat va ghi ro chua dat yeu cau canh bao som.
+3. Neu khong co model nao dat recall muc tieu, chon model co `F1_Low_Engagement` hoac `AUC_ROC_OVR` tot nhat va ghi ro chua dat yeu cau canh bao som.
 
 Quy tac nay nen duoc ghi trong code va bao cao de tranh viec chon model theo cam tinh.
 
@@ -300,8 +306,8 @@ Pipeline `experiment/stage_4_model_training_eval.py` da duoc sua theo dung nguye
 3. Moi ung vien duoc tune threshold cho lop `Low_Engagement` tren `valid_original.csv`.
 4. Selection score moi:
    - uu tien ung vien dat `Recall_Low_Engagement >= 0.60`;
-   - trong cac ung vien dat muc recall, uu tien `Precision_Low_Engagement`;
-   - tiep theo moi xet `F2_Low_Engagement`, `Recall_Low_Engagement`, `F1_Macro`, `Balanced_Accuracy`, `Accuracy`.
+   - trong cac ung vien dat muc recall, uu tien `Recall_Low_Engagement`, `Precision_Low_Engagement`, `F1_Low_Engagement`, `AUC_ROC_OVR`;
+   - sau do moi xet `F1_Macro`, `Balanced_Accuracy`, `Accuracy`.
 5. Test chi duoc chay sau khi da chon xong model va threshold tu validation.
 6. `deployment_bundle.pkl` va `best_model_metadata.json` da luu them:
    - `decision_policy`
@@ -309,18 +315,6 @@ Pipeline `experiment/stage_4_model_training_eval.py` da duoc sua theo dung nguye
    - `low_class_index`
    - `score_source`
 
-Ket qua chay lai stage 4 sau khi sua:
+Ket qua chay lai stage 4 sau khi sua duoc luu trong `evaluation_metrics.csv` va `final_test_metrics.csv`; stage 4 log them bang ranking de xem nhanh.
 
-| Tap | Model | Policy | Threshold | Accuracy | Balanced Acc | F1 Macro | Precision Low | Recall Low | F2 Low | AUC OVR |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Valid | XGBoost | `low_threshold_predict_proba` | 0.35 | 0.5751 | 0.5809 | 0.4683 | 0.4519 | 0.7501 | 0.6627 | 0.7952 |
-| Test | XGBoost | `low_threshold_predict_proba` | 0.35 | 0.5764 | 0.5822 | 0.4701 | 0.4503 | 0.7550 | 0.6650 | 0.7958 |
-
-So voi baseline cu:
-
-| Phien ban | Model | Test Accuracy | Test Precision Low | Test Recall Low | Test F2 Low |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Truoc khi sua | Logistic Regression mac dinh | 0.6177 | 0.2049 | 0.0098 | chua tinh |
-| Sau khi sua | XGBoost + threshold Low 0.35 | 0.5764 | 0.4503 | 0.7550 | 0.6650 |
-
-Dien giai: accuracy giam tu 61.77% xuong 57.64%, nhung Recall Low tang tu 0.98% len 75.50%. Voi bai toan canh bao som, day la trade-off hop ly hon vi model bat duoc phan lon sinh vien nguy co thay vi gan nhu bo sot toan bo lop Low.
+So voi baseline cu, stage 4 moi khong con chon model theo Accuracy hay cac metric cu khong con duoc uu tien. Trong bai toan canh bao som, uu tien cua pipeline la bat duoc sinh vien `Low_Engagement` sớm hon, nen recall/precision/F1/AUC duoc dat cao hon trong ranking.

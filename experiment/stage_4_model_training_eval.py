@@ -64,14 +64,16 @@ TARGET_RISK_CLASS = "Low_Engagement"
 TARGET_LABELS_ORDER = ["Low_Engagement", "Medium_Engagement", "High_Engagement"]
 LOW_RECALL_TARGET = 0.60
 SELECTION_OBJECTIVE = (
-    "Early-warning model selection: use validation only, first require useful "
-    "Low_Engagement recall, then prefer fewer false alarms via Low precision."
+    "Early-warning model selection: use validation only, prioritize Recall for "
+    "Low_Engagement, then Precision, F1, and threshold-independent AUC; "
+    "Accuracy is only a secondary reference on imbalanced data."
 )
 SELECTION_METRIC_ORDER = [
     f"Recall_{TARGET_RISK_CLASS} >= {LOW_RECALL_TARGET}",
-    f"Precision_{TARGET_RISK_CLASS}",
-    f"F2_{TARGET_RISK_CLASS}",
     f"Recall_{TARGET_RISK_CLASS}",
+    f"Precision_{TARGET_RISK_CLASS}",
+    f"F1_{TARGET_RISK_CLASS}",
+    "AUC_ROC_OVR",
     "F1_Macro",
     "Balanced_Accuracy",
     "Accuracy",
@@ -111,17 +113,41 @@ def log_dataset_frame(name: str, path: Path, frame: pd.DataFrame, role: str) -> 
         logger.info(f"  Label distribution: {format_label_distribution(frame['target_label'])}")
 
 
+def log_table(title: str, frame: pd.DataFrame) -> None:
+    logger.info(title)
+    table_text = frame.to_string(index=False)
+    for line in table_text.splitlines():
+        logger.info(line)
+
+
 def log_selection_context() -> None:
     logger.info("=" * 88)
     logger.info("MODEL SELECTION CONTEXT")
-    logger.info(f"Problem context: student early-warning / risk detection")
-    logger.info(f"Target risk class: {TARGET_RISK_CLASS}")
-    logger.info(f"Validation-only selection: yes; test is held out for final reporting only")
-    logger.info(f"Objective: {SELECTION_OBJECTIVE}")
-    logger.info("Metric priority:")
+    context_rows = [
+        ("Problem", "Student early-warning / learner risk detection"),
+        ("Target class", TARGET_RISK_CLASS),
+        ("Selection split", "Validation only; test is held out for final reporting"),
+        ("Primary goal", "Catch at-risk learners early with fewer missed cases"),
+        ("Secondary goal", "Control false alarms for support workload"),
+    ]
+    context_df = pd.DataFrame(context_rows, columns=["Item", "Description"])
+    log_table("Context", context_df)
+    metric_rows = []
+    metric_rationale = {
+        f"Recall_{TARGET_RISK_CLASS} >= {LOW_RECALL_TARGET}": "Gate to ensure recall stays useful",
+        f"Recall_{TARGET_RISK_CLASS}": "Primary early-warning objective",
+        f"Precision_{TARGET_RISK_CLASS}": "Reduce false alarms after recall is protected",
+        f"F1_{TARGET_RISK_CLASS}": "Balance precision and recall for the minority class",
+        "AUC_ROC_OVR": "Threshold-independent separability",
+        "F1_Macro": "Overall class balance across all labels",
+        "Balanced_Accuracy": "Useful on imbalanced data",
+        "Accuracy": "Reference only; not a selection driver",
+    }
     for idx, metric_name in enumerate(SELECTION_METRIC_ORDER, start=1):
-        logger.info(f"  {idx}. {metric_name}")
-    logger.info("Rationale: Accuracy alone is not suitable here because missing Low_Engagement students is more costly than lowering overall accuracy.")
+        metric_rows.append((idx, metric_name, metric_rationale.get(metric_name, "")))
+    metric_df = pd.DataFrame(metric_rows, columns=["Priority", "Metric", "Why it matters"])
+    log_table("Metric order", metric_df)
+    logger.info(f"Selection objective: {SELECTION_OBJECTIVE}")
     logger.info("=" * 88)
 
 
@@ -342,11 +368,6 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray, label_encoder, y
     )
     precision_low = precisions[low_idx]
     recall_low = recalls[low_idx]
-    f2_low = (
-        (5 * precision_low * recall_low) / ((4 * precision_low) + recall_low)
-        if ((4 * precision_low) + recall_low) > 0
-        else 0
-    )
 
     return {
         "Accuracy": round(accuracy_score(y_true, y_pred), 4),
@@ -358,7 +379,6 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray, label_encoder, y
         f"Precision_{TARGET_RISK_CLASS}": round(precision_low, 4),
         f"Recall_{TARGET_RISK_CLASS}": round(recall_low, 4),
         f"F1_{TARGET_RISK_CLASS}": round(f1s[low_idx], 4),
-        f"F2_{TARGET_RISK_CLASS}": round(f2_low, 4),
         "AUC_ROC_OVR": round(float(auc_roc), 4) if not np.isnan(auc_roc) else "N/A",
     }
 
@@ -374,12 +394,14 @@ def evaluate_model(model, X_test: pd.DataFrame, y_test: pd.Series, label_encoder
 def selection_score(metrics: dict) -> tuple:
     recall_low = float(metrics.get(f"Recall_{TARGET_RISK_CLASS}", 0) or 0)
     precision_low = float(metrics.get(f"Precision_{TARGET_RISK_CLASS}", 0) or 0)
-    f2_low = float(metrics.get(f"F2_{TARGET_RISK_CLASS}", 0) or 0)
+    f1_low = float(metrics.get(f"F1_{TARGET_RISK_CLASS}", 0) or 0)
+    auc_roc = metrics.get("AUC_ROC_OVR", 0)
+    auc_value = float(auc_roc) if isinstance(auc_roc, (int, float, np.floating)) else 0.0
     f1_macro = float(metrics.get("F1_Macro", 0) or 0)
     balanced_acc = float(metrics.get("Balanced_Accuracy", 0) or 0)
     accuracy = float(metrics.get("Accuracy", 0) or 0)
     meets_recall_target = int(recall_low >= LOW_RECALL_TARGET)
-    return (meets_recall_target, precision_low, f2_low, recall_low, f1_macro, balanced_acc, accuracy)
+    return (meets_recall_target, recall_low, precision_low, f1_low, auc_value, f1_macro, balanced_acc, accuracy)
 
 
 def build_classification_report_df(y_true, y_pred, label_encoder) -> pd.DataFrame:
@@ -538,7 +560,9 @@ def main():
             logger.info(
                 f"      -> Validation result for {name}: "
                 f"Recall_low={valid_metrics.get(f'Recall_{TARGET_RISK_CLASS}', 'N/A')}, "
-                f"F2_low={valid_metrics.get(f'F2_{TARGET_RISK_CLASS}', 'N/A')}, "
+                f"Precision_low={valid_metrics.get(f'Precision_{TARGET_RISK_CLASS}', 'N/A')}, "
+                f"F1_low={valid_metrics.get(f'F1_{TARGET_RISK_CLASS}', 'N/A')}, "
+                f"AUC_ROC_OVR={valid_metrics.get('AUC_ROC_OVR', 'N/A')}, "
                 f"threshold={valid_metrics.get('Low_Threshold', 'default')}, "
                 f"F1_macro={valid_metrics.get('F1_Macro', 'N/A')}, "
                 f"Balanced_acc={valid_metrics.get('Balanced_Accuracy', 'N/A')}"
@@ -547,25 +571,23 @@ def main():
         metrics_df = pd.DataFrame(results)
         cols = [
             "Model",
-            "Accuracy",
-            "Balanced_Accuracy",
-            "F1_Macro",
-            "F1_Weighted",
-            "Recall_Macro",
             f"Recall_{TARGET_RISK_CLASS}",
             f"Precision_{TARGET_RISK_CLASS}",
             f"F1_{TARGET_RISK_CLASS}",
-            f"F2_{TARGET_RISK_CLASS}",
+            "AUC_ROC_OVR",
+            "F1_Macro",
+            "Balanced_Accuracy",
+            "Accuracy",
             "Decision_Policy",
             "Low_Threshold",
             "Score_Source",
             "Selection_Score",
-            "AUC_ROC_OVR",
         ]
         metrics_df = metrics_df[cols]
         metrics_df.to_csv(METRICS_FILE, index=False, encoding="utf-8-sig")
         logger.info(f"Saved validation comparison metrics: {METRICS_FILE.resolve()}")
         
+        log_table("Validation ranking", metrics_df)
         print("\n" + "=" * 90)
         print("MODEL RANKING TABLE (early-warning optimized)")
         print("=" * 90)
@@ -590,7 +612,8 @@ def main():
             "Selected validation metrics: "
             f"Recall_Low={ranked.iloc[0].get(f'Recall_{TARGET_RISK_CLASS}')}, "
             f"Precision_Low={ranked.iloc[0].get(f'Precision_{TARGET_RISK_CLASS}')}, "
-            f"F2_Low={ranked.iloc[0].get(f'F2_{TARGET_RISK_CLASS}')}, "
+            f"F1_Low={ranked.iloc[0].get(f'F1_{TARGET_RISK_CLASS}')}, "
+            f"AUC_ROC_OVR={ranked.iloc[0].get('AUC_ROC_OVR')}, "
             f"F1_Macro={ranked.iloc[0].get('F1_Macro')}, "
             f"Balanced_Accuracy={ranked.iloc[0].get('Balanced_Accuracy')}, "
             f"Accuracy={ranked.iloc[0].get('Accuracy')}"
@@ -629,7 +652,7 @@ def main():
             f"F1_Macro={test_metrics.get('F1_Macro')}, "
             f"Precision_Low={test_metrics.get(f'Precision_{TARGET_RISK_CLASS}')}, "
             f"Recall_Low={test_metrics.get(f'Recall_{TARGET_RISK_CLASS}')}, "
-            f"F2_Low={test_metrics.get(f'F2_{TARGET_RISK_CLASS}')}, "
+            f"F1_Low={test_metrics.get(f'F1_{TARGET_RISK_CLASS}')}, "
             f"AUC_ROC_OVR={test_metrics.get('AUC_ROC_OVR')}"
         )
 
@@ -644,6 +667,7 @@ def main():
 
         test_report_df = build_classification_report_df(y_test, test_pred, label_encoder)
         test_report_df.to_csv(MODEL_OUT_DIR / "best_model_test_classification_report.csv", index=False, encoding="utf-8-sig")
+        log_table("Final test metrics", test_metrics_df)
 
         cm = confusion_matrix(y_test, test_pred, labels=list(range(len(label_encoder.classes_))))
         plt.figure(figsize=(7, 5))
@@ -667,7 +691,7 @@ def main():
             "test_metrics": test_metrics,
             "selection_policy": {
                 "source_split": "valid",
-                "objective": "Prefer configs meeting Low_Engagement recall target, then maximize Precision_Low, F2_Low, Recall_Low, F1_Macro, Balanced_Accuracy, Accuracy.",
+                "objective": "Prefer configs meeting Low_Engagement recall target, then maximize Recall_Low, Precision_Low, F1_Low, AUC_ROC_OVR, F1_Macro, Balanced_Accuracy, Accuracy.",
                 "low_recall_target": LOW_RECALL_TARGET,
                 "decision_policy": best_policy["decision_policy"],
                 "low_threshold": best_policy["low_threshold"],

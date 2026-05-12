@@ -225,7 +225,8 @@ def print_stage_4_summary() -> None:
         "  "
         f"Recall_Low={validation_metrics.get('Recall_Low_Engagement')}, "
         f"Precision_Low={validation_metrics.get('Precision_Low_Engagement')}, "
-        f"F2_Low={validation_metrics.get('F2_Low_Engagement')}, "
+        f"F1_Low={validation_metrics.get('F1_Low_Engagement')}, "
+        f"AUC_ROC_OVR={validation_metrics.get('AUC_ROC_OVR')}, "
         f"F1_Macro={validation_metrics.get('F1_Macro')}, "
         f"Balanced_Accuracy={validation_metrics.get('Balanced_Accuracy')}, "
         f"Accuracy={validation_metrics.get('Accuracy')}"
@@ -235,11 +236,12 @@ def print_stage_4_summary() -> None:
         "  "
         f"Recall_Low={test_metrics.get('Recall_Low_Engagement')}, "
         f"Precision_Low={test_metrics.get('Precision_Low_Engagement')}, "
-        f"F2_Low={test_metrics.get('F2_Low_Engagement')}, "
+        f"F1_Low={test_metrics.get('F1_Low_Engagement')}, "
+        f"AUC_ROC_OVR={test_metrics.get('AUC_ROC_OVR')}, "
         f"F1_Macro={test_metrics.get('F1_Macro')}, "
         f"Balanced_Accuracy={test_metrics.get('Balanced_Accuracy')}, "
         f"Accuracy={test_metrics.get('Accuracy')}, "
-        f"AUC_ROC_OVR={test_metrics.get('AUC_ROC_OVR')}"
+        f"Decision_Policy={selection_policy.get('decision_policy')}"
     )
     print(f"Validation comparison CSV: {DEPLOYMENT_DIR / 'evaluation_metrics.csv'}")
     print(f"Final test metrics CSV: {DEPLOYMENT_DIR / 'final_test_metrics.csv'}")
