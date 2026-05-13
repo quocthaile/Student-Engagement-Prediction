@@ -56,6 +56,7 @@ SCALER_FILE = MODEL_OUT_DIR / "scaler.pkl"
 
 BEST_MODEL_FILE = MODEL_OUT_DIR / "best_model_4w.pkl"
 METRICS_FILE = MODEL_OUT_DIR / "evaluation_metrics.csv"
+VALIDATION_REPORT_FILE = MODEL_OUT_DIR / "validation_summary_table.csv"
 MODEL_META_FILE = MODEL_OUT_DIR / "best_model_metadata.json"
 TRAINING_LOG_FILE = MODEL_OUT_DIR / "stage_4_training_eval.log"
 
@@ -63,20 +64,24 @@ RANDOM_STATE = 42
 TARGET_RISK_CLASS = "Low_Engagement"
 TARGET_LABELS_ORDER = ["Low_Engagement", "Medium_Engagement", "High_Engagement"]
 LOW_RECALL_TARGET = 0.60
+TARGET_RECALL_CENTER = 0.75
+TARGET_RECALL_BAND = (0.65, 0.85)
 SELECTION_OBJECTIVE = (
     "Early-warning model selection: use validation only, prioritize Recall for "
-    "Low_Engagement, then Precision, F1, and threshold-independent AUC; "
-    "Accuracy is only a secondary reference on imbalanced data."
+    "Low_Engagement within a realistic recall band, then Accuracy, Balanced Accuracy, "
+    "Precision, F1, and threshold-independent AUC."
 )
 SELECTION_METRIC_ORDER = [
     f"Recall_{TARGET_RISK_CLASS} >= {LOW_RECALL_TARGET}",
-    f"Recall_{TARGET_RISK_CLASS}",
+    f"Recall_{TARGET_RISK_CLASS} in {TARGET_RECALL_BAND}",
+    "Accuracy",
+    "Balanced_Accuracy",
+    f"|Recall_{TARGET_RISK_CLASS} - {TARGET_RECALL_CENTER}|",
+    f"|Predicted {TARGET_RISK_CLASS} rate - actual rate|",
     f"Precision_{TARGET_RISK_CLASS}",
     f"F1_{TARGET_RISK_CLASS}",
     "AUC_ROC_OVR",
     "F1_Macro",
-    "Balanced_Accuracy",
-    "Accuracy",
 ]
 
 
@@ -135,13 +140,15 @@ def log_selection_context() -> None:
     metric_rows = []
     metric_rationale = {
         f"Recall_{TARGET_RISK_CLASS} >= {LOW_RECALL_TARGET}": "Gate to ensure recall stays useful",
-        f"Recall_{TARGET_RISK_CLASS}": "Primary early-warning objective",
+        f"Recall_{TARGET_RISK_CLASS} in {TARGET_RECALL_BAND}": "Avoid degenerate thresholds that predict Low almost everywhere",
+        "Accuracy": "Primary practical metric for this deployment",
+        "Balanced_Accuracy": "Useful sanity check on class balance",
+        f"|Recall_{TARGET_RISK_CLASS} - {TARGET_RECALL_CENTER}|": "Keeps recall realistic instead of forcing 1.0",
+        f"|Predicted {TARGET_RISK_CLASS} rate - actual rate|": "Penalizes overpredicting the Low class",
         f"Precision_{TARGET_RISK_CLASS}": "Reduce false alarms after recall is protected",
         f"F1_{TARGET_RISK_CLASS}": "Balance precision and recall for the minority class",
         "AUC_ROC_OVR": "Threshold-independent separability",
         "F1_Macro": "Overall class balance across all labels",
-        "Balanced_Accuracy": "Useful on imbalanced data",
-        "Accuracy": "Reference only; not a selection driver",
     }
     for idx, metric_name in enumerate(SELECTION_METRIC_ORDER, start=1):
         metric_rows.append((idx, metric_name, metric_rationale.get(metric_name, "")))
@@ -368,6 +375,8 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray, label_encoder, y
     )
     precision_low = precisions[low_idx]
     recall_low = recalls[low_idx]
+    actual_low_rate = float(np.mean(np.asarray(y_true) == low_idx))
+    predicted_low_rate = float(np.mean(np.asarray(y_pred) == low_idx))
 
     return {
         "Accuracy": round(accuracy_score(y_true, y_pred), 4),
@@ -379,6 +388,8 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray, label_encoder, y
         f"Precision_{TARGET_RISK_CLASS}": round(precision_low, 4),
         f"Recall_{TARGET_RISK_CLASS}": round(recall_low, 4),
         f"F1_{TARGET_RISK_CLASS}": round(f1s[low_idx], 4),
+        "Actual_Low_Rate": round(actual_low_rate, 4),
+        "Predicted_Low_Rate": round(predicted_low_rate, 4),
         "AUC_ROC_OVR": round(float(auc_roc), 4) if not np.isnan(auc_roc) else "N/A",
     }
 
@@ -400,8 +411,22 @@ def selection_score(metrics: dict) -> tuple:
     f1_macro = float(metrics.get("F1_Macro", 0) or 0)
     balanced_acc = float(metrics.get("Balanced_Accuracy", 0) or 0)
     accuracy = float(metrics.get("Accuracy", 0) or 0)
+    actual_low_rate = float(metrics.get("Actual_Low_Rate", 0) or 0)
+    predicted_low_rate = float(metrics.get("Predicted_Low_Rate", 0) or 0)
     meets_recall_target = int(recall_low >= LOW_RECALL_TARGET)
-    return (meets_recall_target, recall_low, precision_low, f1_low, auc_value, f1_macro, balanced_acc, accuracy)
+    within_recall_band = int(TARGET_RECALL_BAND[0] <= recall_low <= TARGET_RECALL_BAND[1])
+    return (
+        meets_recall_target,
+        within_recall_band,
+        accuracy,
+        balanced_acc,
+        -abs(recall_low - TARGET_RECALL_CENTER),
+        -abs(predicted_low_rate - actual_low_rate),
+        precision_low,
+        f1_low,
+        auc_value,
+        f1_macro,
+    )
 
 
 def build_classification_report_df(y_true, y_pred, label_encoder) -> pd.DataFrame:
@@ -415,6 +440,37 @@ def build_classification_report_df(y_true, y_pred, label_encoder) -> pd.DataFram
         zero_division=0,
     )
     return pd.DataFrame(report).T.reset_index().rename(columns={"index": "label"})
+
+
+def build_validation_summary_df(metrics_df: pd.DataFrame) -> pd.DataFrame:
+    summary_cols = [
+        "Model",
+        "Accuracy",
+        "Balanced_Accuracy",
+        "F1_Macro",
+        "F1_Weighted",
+        "Predicted_Low_Rate",
+        "Actual_Low_Rate",
+        f"Recall_{TARGET_RISK_CLASS}",
+        f"Precision_{TARGET_RISK_CLASS}",
+        f"F1_{TARGET_RISK_CLASS}",
+    ]
+    summary_df = metrics_df[summary_cols].copy()
+    summary_df = summary_df.rename(
+        columns={
+            "Model": "Mô hình huấn luyện",
+            "Accuracy": "Accuracy",
+            "Balanced_Accuracy": "Balanced Accuracy",
+            "F1_Macro": "F1 Macro",
+            "F1_Weighted": "F1 Weighted",
+            "Predicted_Low_Rate": "Predicted Low Rate",
+            "Actual_Low_Rate": "Actual Low Rate",
+            f"Recall_{TARGET_RISK_CLASS}": f"Recall {TARGET_RISK_CLASS}",
+            f"Precision_{TARGET_RISK_CLASS}": f"Precision {TARGET_RISK_CLASS}",
+            f"F1_{TARGET_RISK_CLASS}": f"F1 {TARGET_RISK_CLASS}",
+        }
+    )
+    return summary_df
 
 def main():
     print("=" * 80)
@@ -571,6 +627,9 @@ def main():
         metrics_df = pd.DataFrame(results)
         cols = [
             "Model",
+            "F1_Weighted",
+            "Predicted_Low_Rate",
+            "Actual_Low_Rate",
             f"Recall_{TARGET_RISK_CLASS}",
             f"Precision_{TARGET_RISK_CLASS}",
             f"F1_{TARGET_RISK_CLASS}",
@@ -586,12 +645,21 @@ def main():
         metrics_df = metrics_df[cols]
         metrics_df.to_csv(METRICS_FILE, index=False, encoding="utf-8-sig")
         logger.info(f"Saved validation comparison metrics: {METRICS_FILE.resolve()}")
+
+        validation_summary_df = build_validation_summary_df(metrics_df)
+        validation_summary_df = validation_summary_df.sort_values(
+            by=["Recall Low_Engagement", "Accuracy", "Balanced Accuracy", "Precision Low_Engagement"],
+            ascending=False,
+            na_position="last",
+        )
+        validation_summary_df.to_csv(VALIDATION_REPORT_FILE, index=False, encoding="utf-8-sig")
+        logger.info(f"Saved report-style validation table: {VALIDATION_REPORT_FILE.resolve()}")
         
         log_table("Validation ranking", metrics_df)
         print("\n" + "=" * 90)
-        print("MODEL RANKING TABLE (early-warning optimized)")
+        print("VALIDATION RANKING TABLE (selection on valid only)")
         print("=" * 90)
-        print(metrics_df.to_string(index=False))
+        print(validation_summary_df.to_string(index=False))
         print("=" * 90 + "\n")
 
         ranked_records = sorted(
@@ -731,6 +799,7 @@ def main():
 
         logger.info("Output artifacts:")
         logger.info(f"  Validation comparison: {METRICS_FILE.resolve()}")
+        logger.info(f"  Validation report table: {VALIDATION_REPORT_FILE.resolve()}")
         logger.info(f"  Final test metrics: {(MODEL_OUT_DIR / 'final_test_metrics.csv').resolve()}")
         logger.info(f"  Best-model valid report: {(MODEL_OUT_DIR / 'best_model_valid_classification_report.csv').resolve()}")
         logger.info(f"  Best-model test report: {(MODEL_OUT_DIR / 'best_model_test_classification_report.csv').resolve()}")

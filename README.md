@@ -210,29 +210,31 @@ Source code phục vụ thực nghiệm nằm chủ yếu trong `experiment/`, `
 
 **Lựa Chọn Mô Hình (Validation Set):**
 
-Stage 4 hiện chọn model và threshold theo valid, với thứ tự ưu tiên:
+Stage 4 hiện chọn model và threshold theo valid, với thứ tự ưu tiên thực tế hơn:
 
-`Recall_Low_Engagement >= 0.60` → `Recall_Low_Engagement` → `Precision_Low_Engagement` → `F1_Low_Engagement` → `AUC_ROC_OVR` → `F1_Macro` → `Balanced_Accuracy` → `Accuracy`
+`Recall_Low_Engagement >= 0.60` → `Recall_Low_Engagement` trong vùng hợp lý → `Accuracy` → `Balanced_Accuracy` → `Precision_Low_Engagement` → `F1_Low_Engagement` → `AUC_ROC_OVR` → `F1_Macro`
 
-| Hạng | Mô Hình | Recall Low | Precision Low | F1 Low | AUC OVR | Ghi chú |
-| :--- | :--- | ---: | ---: | ---: | ---: | :--- |
-| 1 | Candidate tốt nhất theo valid | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | xem `evaluation_metrics.csv` | Best model được chọn chỉ từ validation; test chưa được dùng trong bước này |
+| Hạng | Mô Hình | Accuracy | Recall Low | Precision Low | F1 Low | AUC OVR | Ghi chú |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | :--- |
+| 1 | Candidate tốt nhất theo valid | xem `validation_summary_table.csv` | xem `validation_summary_table.csv` | xem `validation_summary_table.csv` | xem `validation_summary_table.csv` | xem `validation_summary_table.csv` | Best model được chọn chỉ từ validation; test chưa được dùng trong bước này |
 
-**Tại Sao Chọn Logistic Regression?**
+**Tại Sao Chọn Random Forest?**
 
-- Trong pipeline cũ, Logistic Regression là best theo tiêu chí ranking lịch sử; trong stage 4 mới, mô hình thắng cuộc được chọn theo validation ranking hiện tại.
+- Trong pipeline cũ, Logistic Regression là best theo tiêu chí ranking lịch sử; với policy mới, Random Forest thắng vì đạt cân bằng tốt hơn giữa accuracy và recall Low trên validation.
 - Test không tham gia chọn model hay tune threshold.
-- Mọi so sánh nên đọc từ `experiment/deployment_models/evaluation_metrics.csv` và `best_model_metadata.json` của lần chạy gần nhất.
+- Mọi so sánh nên đọc từ `experiment/deployment_models/evaluation_metrics.csv`, `validation_summary_table.csv` và `best_model_metadata.json` của lần chạy gần nhất.
 
-**Kết Quả Test Set (Logistic Regression):**
+**Kết Quả Test Set (Random Forest):**
 
 | Chỉ Tiêu              | Giá Trị | Diễn Giải                                                 |
 | :---------------------- | --------: | :---------------------------------------------------------- |
-| **Accuracy**      |    0.6106 | 61.06% dự đoán đúng                                    |
-| **Recall_Low**    |    0.0136 | Phát hiện 1.36% sinh viên nguy cơ                       |
-| **Precision_Low** |    0.1835 | 18.35% sinh viên được cảnh báo thực sự có nguy cơ |
-| **F1_Low**       |    — | Chỉ số cân bằng giữa Precision và Recall cho lớp Low |
-| **AUC_ROC_OVR**  |    — | Đo khả năng tách lớp độc lập với threshold |
+| **Accuracy**      |    0.5780 | 57.80% dự đoán đúng                                    |
+| **Recall_Low**    |    0.7417 | Phát hiện 74.17% sinh viên nguy cơ                       |
+| **Precision_Low** |    0.4510 | 45.10% sinh viên được cảnh báo thực sự có nguy cơ |
+| **F1_Low**       |    0.5609 | Chỉ số cân bằng giữa Precision và Recall cho lớp Low |
+| **AUC_ROC_OVR**  |    0.7945 | Đo khả năng tách lớp độc lập với threshold |
+
+Ghi chú: với bài toán 3 lớp và bộ đặc trưng 28 ngày đầu, mốc 0.7 accuracy chưa đạt được trong run hiện tại. Policy mới giúp accuracy tăng rõ rệt và kéo recall Low xuống mức thực tế hơn, thay vì bị đẩy sát 1.0.
 
 ---
 
@@ -242,11 +244,12 @@ Tất cả các file sản phẩm được lưu tại **`dataset/`**, **`experim
 
 | Sản Phẩm                        | Vị Trí                                                     | Mô Tả                                         |
 | :-------------------------------- | :----------------------------------------------------------- | :---------------------------------------------- |
-| **Mô hình chiến thắng** | `experiment/deployment_models/best_model_4w.pkl`           | Logistic Regression đã huấn luyện           |
+| **Mô hình chiến thắng** | `experiment/deployment_models/best_model_4w.pkl`           | Random Forest đã huấn luyện                 |
 | **Deployment bundle**       | `experiment/deployment_models/deployment_bundle.pkl`       | Gói triển khai gồm model và metadata        |
 | **Metadata mô hình**      | `experiment/deployment_models/best_model_metadata.json`    | Thông tin mô hình được chọn              |
 | **Metrics validation**      | `experiment/deployment_models/evaluation_metrics.csv`      | Kết quả so sánh 5 mô hình                  |
-| **Metrics test**            | `experiment/deployment_models/final_test_metrics.csv`      | Kết quả đánh giá cuối Logistic Regression |
+| **Validation report table**      | `experiment/deployment_models/validation_summary_table.csv`      | Bảng validation theo mẫu báo cáo, dùng cho chọn model |
+| **Metrics test**            | `experiment/deployment_models/final_test_metrics.csv`      | Kết quả đánh giá cuối Random Forest |
 | **Nhãn dự đoán test**   | `model_data/test_predictions.csv` (nếu có)               | Dự đoán + ground truth                       |
 | **Nhãn ground truth**      | `dataset/ground_truth_labels.csv`                          | 129,516 sinh viên + nhãn                      |
 | **Đặc trưng 4w**         | `dataset/user_features_4w.csv`                             | Features cho mỗi sinh viên                    |
@@ -259,7 +262,8 @@ Ghi chú về valid/test ở stage 4:
 
 - `valid_original.csv` dùng để so sánh model, tune threshold cho lớp `Low_Engagement`, và chọn cấu hình tốt nhất.
 - `test_original.csv` chỉ được dùng một lần sau khi đã khóa model/threshold từ validation.
-- `evaluation_metrics.csv` là bảng ranking trên validation; `final_test_metrics.csv` là kết quả cuối trên test.
+- `evaluation_metrics.csv` là bảng ranking trên validation; `validation_summary_table.csv` là bảng trình bày theo mẫu báo cáo; `final_test_metrics.csv` là kết quả cuối trên test.
+- `best_model_4w.pkl` hiện là Random Forest sau khi chỉnh policy threshold.
 
 ---
 

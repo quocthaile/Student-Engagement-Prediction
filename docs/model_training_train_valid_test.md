@@ -96,6 +96,10 @@ Quy trinh hien tai:
    - `deployment_bundle.pkl`
    - `best_model_metadata.json`
 
+Stage 4 cung xuat them `validation_summary_table.csv` de dung lam bang bao cao theo mau, tach rieng voi bang ranking ky thuat `evaluation_metrics.csv`.
+
+Sau khi chinh policy threshold theo huong thuc dung hon, model thang hien tai la Random Forest voi Accuracy valid ~0.575 va Accuracy test ~0.578; Recall Low giam tu 1.0 xuong ~0.74, thuc te hon cho canh bao som.
+
 Ket qua hien tai trong stage 4 duoc log theo bang ranking validation va bang test cuoi cung, voi cac cot chinh:
 
 | Tap | Model | Recall Low | Precision Low | F1 Low | AUC OVR | F1 Macro | Balanced Acc | Accuracy |
