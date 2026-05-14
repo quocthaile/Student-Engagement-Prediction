@@ -1,23 +1,23 @@
-Model: Random Forest Deep Balanced
+Model: Random Forest
 Window mode: fixed, observation_days=28
 Label percentiles: (0.33, 0.67)
 Train class ratios: {'Low_Engagement': 1.0, 'Medium_Engagement': 1.0, 'High_Engagement': 1.0}
 Enable SMOTE: True
 Decision policy: low_threshold_predict_proba
-Low threshold: 0.05
-Accuracy: 0.3902
-Balanced accuracy: 0.3942
-Macro F1: 0.2761
-Weighted F1: 0.2734
-Low-class precision: 0.3511
-Low-class recall: 1.0000
-Low-class F1: 0.5198
+Low threshold: 0.45
+Accuracy: 0.5780
+Balanced accuracy: 0.5837
+Macro F1: 0.4777
+Weighted F1: 0.4732
+Low-class precision: 0.4510
+Low-class recall: 0.7417
+Low-class F1: 0.5609
 
 Classification report:
                    precision    recall  f1-score      support
-High_Engagement     1.000000  0.182499  0.308666   4274.00000
-Low_Engagement      0.351134  1.000000  0.519762   4274.00000
-Medium_Engagement   0.000000  0.000000  0.000000   4404.00000
-accuracy            0.390210  0.390210  0.390210      0.39021
-macro avg           0.450378  0.394166  0.276143  12952.00000
-weighted avg        0.445857  0.390210  0.273371  12952.00000
+High_Engagement     0.732851  0.994853  0.843986   4274.00000
+Low_Engagement      0.450989  0.741694  0.560913   4274.00000
+Medium_Engagement   0.528926  0.014532  0.028287   4404.00000
+accuracy            0.577980  0.577980  0.577980      0.57798
+macro avg           0.570922  0.583693  0.477729  12952.00000
+weighted avg        0.570500  0.577980  0.473218  12952.00000

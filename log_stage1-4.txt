@@ -1,0 +1,287 @@
+Running step 1 -> stage_1_generate_ground_truth.py
+Running: Generate full-course ground truth labels
+Executing command: C:\Users\thailq\AppData\Local\Programs\Python\Python314\python.exe D:\project\Student-Engagement-Prediction\experiment\stage_1_generate_ground_truth.py
+================================================================================
+STEP 1: GENERATE GROUND TRUTH LABELS (FULL COURSE BEHAVIOR)
+================================================================================
+[1/4] Đang tải dữ liệu hành vi thô từ: D:\project\Student-Engagement-Prediction\dataset\combined_all_data.parquet
+      -> Đã tải 4,438,340 records (mỗi record = 1 submission/event)
+      -> Từ 129,516 người học (unique user_id)
+      -> Cột sử dụng: user_id, attempts, is_correct, score, create_time_x, create_time_y
+
+      GIẢI THÍCH LEAK DATA CONTROL:
+         Dữ liệu thô: ~4,438,340 records từ tất cả thời gian
+         → Tất cả 129,516 người học
+         → Sẽ cắt xuống chỉ giữ hành vi trong 28 ngày đầu...
+[2/4] Đang tổng hợp hành vi toàn khóa theo từng sinh viên
+      -> Dữ liệu thô: 4,438,340 records từ 129,516 người học
+
+      GIẢI THÍCH GROUPBY (aggregation):
+         Mỗi record = 1 submission/event của 1 user
+         Groupby user_id = Gom tất cả events của mỗi user lại thành 1 dòng
+         Kết quả: 1 dòng per user với các chỉ số tổng hợp (tổng attempts, etc.)
+
+      -> Sau groupby: 129,516 sinh viên (= unique user_id)
+      -> Giảm từ 4,438,340 records → 129,516 users
+         Tỷ lệ: trung bình 34.3 records/user
+
+      -> Thống kê tổng hợp: attempts=2,613,465, is_correct=1,812,892, avg_score=0.0039, video_clicks=4,059,617, forum_posts=4,254,109
+[2.2/4] Đang lưu snapshot aggregated user features (Stage1)...
+      -> Đã lưu user features aggregated: D:\project\Student-Engagement-Prediction\dataset\user_features_aggregated.csv
+[2.5/4] Đang áp dụng Laplace Smoothing cho accuracy_rate...
+      -> accuracy_rate trước smoothing (alpha=1.0): min=0.0000, mean=0.0038, max=1.0000
+      -> accuracy_rate sau smoothing: min=0.0476, mean=0.5010, max=0.9998
+[3/4] Đang chuẩn hóa các chỉ số bằng RobustScaler và tính trọng số...
+      -> Trọng số mặc định từ config: {'total_study_time': 0.35, 'avg_score': 0.3, 'accuracy_rate': 0.2, 'attempts': 0.1, 'total_forum_activity': 0.05}
+      -> USE_ENTROPY_WEIGHT_METHOD = True
+      -> SCALER_TYPE = robust
+
+      -> Trọng số tính bằng EWM (Entropy Weight Method): {'total_study_time': np.float64(0.20074300031543776), 'avg_score': np.float64(0.20058021815219992), 'accuracy_rate': np.float64(0.19716720480140404), 'attempts': np.float64(0.20076657641552048), 'total_forum_activity': np.float64(0.20074300031543776)}
+         (Tự động từ entropy của từng chỉ số, không bias)
+
+      -> Chuẩn hóa bằng RobustScaler (chống outlier tốt hơn MinMaxScaler)
+      -> WES sau chuẩn hóa: min=0.0000, mean=16.9380, max=1287018.7253
+[4/4] Đang chia nhãn theo phân vị tự nhiên để tránh tỷ lệ 1:1:1
+      -> Mốc phân vị: 0.33 / 0.67
+      -> Đã gán nhãn xong, đang tổng hợp báo cáo phân phối nhãn
+
+Đã lưu file nhãn mục tiêu: D:\project\Student-Engagement-Prediction\dataset\ground_truth_labels.csv
+Đã lưu report stage 1: D:\project\Student-Engagement-Prediction\dataset\ground_truth_report.csv
+
+Phân phối nhãn thực tế:
+     target_label  count  percentage
+   Low_Engagement  42740        33.0
+Medium_Engagement  44036        34.0
+  High_Engagement  42740        33.0
+
+================================================================================
+TIẾP THEO - CHỐT CHẶN LEAK DATA TRONG STAGE 2:
+================================================================================
+Stage 1 vừa tạo Ground Truth Labels từ toàn bộ khóa học (~130K users)
+
+Stage 2 sẽ:
+  1. Cắt dữ liệu thô xuống chỉ 28 ngày đầu (từ ~4M records → ~1.2M records)
+  2. Tính time-window features từ 1.2M records
+  3. Groupby user_id để được ~130K users với features mới
+  4. Ghép nhãn từ Stage 1 để tạo dữ liệu train
+
+Lý do cắt 28 ngày:
+   - Tránh leak data khi huấn luyện model (tránh dùng info từ tương lai)
+   - Mô phỏng cảnh báo sớm (chỉ dùng 28 ngày đầu để predict toàn khóa)
+Running step 2 -> stage_2_time_window_features.py
+Running: Extract early time-window features
+Executing command: C:\Users\thailq\AppData\Local\Programs\Python\Python314\python.exe D:\project\Student-Engagement-Prediction\experiment\stage_2_time_window_features.py
+================================================================================
+STEP 2: EXTRACT EARLY TIME-WINDOW FEATURES (FIXED)
+================================================================================
+2026-05-13 18:43:03 - [INFO] - Cấu hình hiện tại: window_mode=fixed, observation_days=28
+2026-05-13 18:43:03 - [INFO] - Đang kiểm tra schema (cấu trúc) của file Parquet để xác định cột có thể dùng...
+2026-05-13 18:43:03 - [INFO] - -> Sẽ tải 11 cột: user_id, submit_time, create_time_x, create_time_y, school, year_of_birth, gender, num_courses, attempts, is_correct, score
+2026-05-13 18:43:03 - [WARNING] - File Parquet bị thiếu các cột: enroll_time
+2026-05-13 18:43:03 - [INFO] - Đang tải dữ liệu thô từ: D:\project\Student-Engagement-Prediction\dataset\combined_all_data.parquet
+2026-05-13 18:43:03 - [INFO] - -> Đã tải thành công: 4,438,340 dòng, 129,516 người học
+2026-05-13 18:43:03 - [INFO] - Đang chuẩn hóa các mốc thời gian hành động để xác định timeline học tập...
+2026-05-13 18:43:08 - [INFO] - Đang xác định thời điểm bắt đầu học (Enroll Time) cho từng người học...
+2026-05-13 18:43:08 - [WARNING] - File Parquet bị thiếu cột enroll_time; fallback bằng action_time nhỏ nhất của từng user.
+2026-05-13 18:43:08 - [INFO] - Đang tính số ngày kể từ lúc bắt đầu học cho từng hành vi...
+2026-05-13 18:43:08 - [INFO] - Đang đo độ dài hành vi tối đa theo từng user để hỗ trợ relative windows...
+2026-05-13 18:43:09 - [INFO] - -> days_since_enroll: min=0.0, max=421.0, mean=83.77
+2026-05-13 18:43:09 - [INFO] - [0.5] Lưu snapshot timeline đã chuẩn hóa (Stage2)...
+2026-05-13 18:43:32 - [INFO] - -> Đã lưu timeline snapshot: D:\project\Student-Engagement-Prediction\dataset\stage2_action_timeline.csv
+2026-05-13 18:43:32 - [INFO] - Đang dọn dẹp bộ nhớ RAM sau khi dựng timeline gốc...
+2026-05-13 18:43:32 - [INFO] - CHỐT CHẶN LEAK DATA (fixed): chỉ giữ hành vi trong 28 ngày đầu...
+2026-05-13 18:43:32 - [INFO] - -> Dữ liệu sau khi cắt thời gian: 1,231,213 dòng, 129,516 người học
+2026-05-13 18:43:32 - [INFO] - Đang tổng hợp đặc trưng khởi đầu cho cửa sổ 4w...
+2026-05-13 18:43:32 - [INFO] - -> Đã tổng hợp đặc trưng cho 129,516 sinh viên; các cột chính: attempts_4w, is_correct_4w, score_4w, accuracy_rate_4w
+2026-05-13 18:43:34 - [INFO] - -> Đã xuất file đặc trưng fixed tại: D:\project\Student-Engagement-Prediction\dataset\user_features_4w.csv
+2026-05-13 18:43:37 - [INFO] - -> Đã lưu pre-processing dataset tại: D:\project\Student-Engagement-Prediction\dataset\pos-processing_dataset.csv
+2026-05-13 18:43:37 - [INFO] - Đã lưu bảng so sánh time-window tại: D:\project\Student-Engagement-Prediction\dataset\time_window_comparison.csv
+================================================================================
+2026-05-13 18:43:37 - [INFO] - HOÀN TẤT GIAI ĐOẠN 2.
+2026-05-13 18:43:37 - [INFO] - File tương thích cho Stage 3: D:\project\Student-Engagement-Prediction\dataset\user_features_and_wes.csv
+2026-05-13 18:43:37 - [INFO] - Số cấu hình time-window đã xuất: 1
+================================================================================
+Running step 3 -> stage_3_split_and_smote.py
+Running: Split, encode, scale, and balance training data
+Executing command: C:\Users\thailq\AppData\Local\Programs\Python\Python314\python.exe D:\project\Student-Engagement-Prediction\experiment\stage_3_split_and_smote.py
+================================================================================
+STEP 3: STRATIFIED SPLITTING (8:1:1) + SMOTE
+================================================================================
+Đã tải dữ liệu: 129,516 dòng
+Cột: ['user_id', 'school', 'school_encoded', 'stage2_action_time', 'attempts_4w', 'is_correct_4w', 'score_4w', 'accuracy_rate_4w', 'num_courses', 'seq', 'speed', 'rep_counts', 'cmt_counts', 'year_of_birth', 'gender', 'target_label']
+Label distribution: {'Medium_Engagement': 44036, 'Low_Engagement': 42740, 'High_Engagement': 42740}
+ Split: Train 103612, Valid 12952, Test 12952
+Áp dụng SMOTE trên training data...
+  -> Dùng SMOTENC cho đặc trưng phân loại (school/gender)
+  Train sau SMOTE: 105684 mẫu
+  Label distribution: (array([0, 1, 2]), array([35228, 35228, 35228]))
+Lưu train: D:\project\Student-Engagement-Prediction\dataset\model_data\train_smote.csv
+Lưu valid: D:\project\Student-Engagement-Prediction\dataset\model_data\valid_original.csv
+Lưu test: D:\project\Student-Engagement-Prediction\dataset\model_data\test_original.csv
+Lưu label encoder: D:\project\Student-Engagement-Prediction\experiment\deployment_models\label_encoder.pkl
+================================================================================
+HOÀN TẤT Stage 3: Split stratified + SMOTE
+================================================================================
+Running step 4 -> stage_4_model_training_eval.py
+Running: Train, evaluate, and export deployment model
+Executing command: C:\Users\thailq\AppData\Local\Programs\Python\Python314\python.exe D:\project\Student-Engagement-Prediction\experiment\stage_4_model_training_eval.py
+================================================================================
+STEP 4: MODEL TRAINING, BENCHMARKING AND DEPLOYMENT EXPORT
+================================================================================
+2026-05-13 18:44:16 - [INFO] - Training inputs: D:\project\Student-Engagement-Prediction\dataset\model_data\train_smote.csv, D:\project\Student-Engagement-Prediction\dataset\model_data\valid_original.csv, D:\project\Student-Engagement-Prediction\dataset\model_data\test_original.csv
+2026-05-13 18:44:16 - [INFO] - ========================================================================================
+2026-05-13 18:44:16 - [INFO] - STEP 4 START: MODEL TRAINING, VALIDATION TUNING, FINAL TEST EVALUATION
+2026-05-13 18:44:16 - [INFO] - Detailed log file: D:\project\Student-Engagement-Prediction\experiment\deployment_models\stage_4_training_eval.log
+2026-05-13 18:44:16 - [INFO] - Configured input files: train=D:\project\Student-Engagement-Prediction\dataset\model_data\train_smote.csv, valid=D:\project\Student-Engagement-Prediction\dataset\model_data\valid_original.csv, test=D:\project\Student-Engagement-Prediction\dataset\model_data\test_original.csv
+2026-05-13 18:44:16 - [INFO] - ========================================================================================
+2026-05-13 18:44:16 - [INFO] - MODEL SELECTION CONTEXT
+2026-05-13 18:44:16 - [INFO] - Context
+2026-05-13 18:44:16 - [INFO] -            Item                                           Description
+2026-05-13 18:44:16 - [INFO] -         Problem        Student early-warning / learner risk detection
+2026-05-13 18:44:16 - [INFO] -    Target class                                        Low_Engagement
+2026-05-13 18:44:16 - [INFO] - Selection split Validation only; test is held out for final reporting
+2026-05-13 18:44:16 - [INFO] -    Primary goal  Catch at-risk learners early with fewer missed cases
+2026-05-13 18:44:16 - [INFO] -  Secondary goal             Control false alarms for support workload
+2026-05-13 18:44:16 - [INFO] - Metric order
+2026-05-13 18:44:16 - [INFO] -  Priority                                        Metric                                                 Why it matters
+2026-05-13 18:44:16 - [INFO] -         1                  Recall_Low_Engagement >= 0.6                             Gate to ensure recall stays useful
+2026-05-13 18:44:16 - [INFO] -         2         Recall_Low_Engagement in (0.65, 0.85) Avoid degenerate thresholds that predict Low almost everywhere
+2026-05-13 18:44:16 - [INFO] -         3                                      Accuracy                   Primary practical metric for this deployment
+2026-05-13 18:44:16 - [INFO] -         4                             Balanced_Accuracy                           Useful sanity check on class balance
+2026-05-13 18:44:16 - [INFO] -         5                |Recall_Low_Engagement - 0.75|                  Keeps recall realistic instead of forcing 1.0
+2026-05-13 18:44:16 - [INFO] -         6 |Predicted Low_Engagement rate - actual rate|                         Penalizes overpredicting the Low class
+2026-05-13 18:44:16 - [INFO] -         7                      Precision_Low_Engagement                  Reduce false alarms after recall is protected
+2026-05-13 18:44:16 - [INFO] -         8                             F1_Low_Engagement            Balance precision and recall for the minority class
+2026-05-13 18:44:16 - [INFO] -         9                                   AUC_ROC_OVR                             Threshold-independent separability
+2026-05-13 18:44:16 - [INFO] -        10                                      F1_Macro                        Overall class balance across all labels
+2026-05-13 18:44:16 - [INFO] - Selection objective: Early-warning model selection: use validation only, prioritize Recall for Low_Engagement within a realistic recall band, then Accuracy, Balanced Accuracy, Precision, F1, and threshold-independent AUC.
+2026-05-13 18:44:16 - [INFO] - ========================================================================================
+2026-05-13 18:44:16 - [INFO] - Loading train/valid/test and LabelEncoder from stage 3...
+2026-05-13 18:44:16 - [INFO] - ----------------------------------------------------------------------------------------
+2026-05-13 18:44:16 - [INFO] - TRAIN dataset
+2026-05-13 18:44:16 - [INFO] -   Role: Fit candidate models only. This split may be resampled by SMOTE/SMOTENC.
+2026-05-13 18:44:16 - [INFO] -   File: D:\project\Student-Engagement-Prediction\dataset\model_data\train_smote.csv
+2026-05-13 18:44:16 - [INFO] -   Shape: rows=105,684, columns=13
+2026-05-13 18:44:16 - [INFO] -   Label distribution: High_Engagement: 35,228 (33.33%); Low_Engagement: 35,228 (33.33%); Medium_Engagement: 35,228 (33.33%)
+2026-05-13 18:44:16 - [INFO] - ----------------------------------------------------------------------------------------
+2026-05-13 18:44:16 - [INFO] - VALID dataset
+2026-05-13 18:44:16 - [INFO] -   Role: Tune model/hyperparameters/Low_Engagement threshold and select the best candidate.
+2026-05-13 18:44:16 - [INFO] -   File: D:\project\Student-Engagement-Prediction\dataset\model_data\valid_original.csv
+2026-05-13 18:44:16 - [INFO] -   Shape: rows=12,952, columns=16
+2026-05-13 18:44:16 - [INFO] -   Label distribution: Medium_Engagement: 4,404 (34.00%); Low_Engagement: 4,274 (33.00%); High_Engagement: 4,274 (33.00%)
+2026-05-13 18:44:16 - [INFO] - ----------------------------------------------------------------------------------------
+2026-05-13 18:44:16 - [INFO] - TEST dataset
+2026-05-13 18:44:16 - [INFO] -   Role: Final held-out evaluation after the validation policy has selected the model.
+2026-05-13 18:44:16 - [INFO] -   File: D:\project\Student-Engagement-Prediction\dataset\model_data\test_original.csv
+2026-05-13 18:44:16 - [INFO] -   Shape: rows=12,952, columns=16
+2026-05-13 18:44:16 - [INFO] -   Label distribution: Medium_Engagement: 4,404 (34.00%); High_Engagement: 4,274 (33.00%); Low_Engagement: 4,274 (33.00%)
+2026-05-13 18:44:16 - [INFO] - -> Dataset sizes: train=105,684, valid=12,952, test=12,952; num_classes=3
+2026-05-13 18:44:16 - [INFO] - Training feature columns (12): ['school_encoded', 'seq', 'speed', 'rep_counts', 'cmt_counts', 'age', 'gender_encoded', 'num_courses', 'attempts_4w', 'is_correct_4w', 'score_4w', 'accuracy_rate_4w']
+2026-05-13 18:44:16 - [INFO] - [1/4] Initializing candidate ML models...
+2026-05-13 18:44:16 - [INFO] - [2/4] Training candidates and benchmarking on validation...
+2026-05-13 18:44:16 - [INFO] - Candidate models to train/evaluate on validation: ['Logistic Regression C1', 'Logistic Regression C0.3 Balanced', 'Logistic Regression C1 Balanced', 'Logistic Regression C3 Balanced', 'Linear SVC', 'Linear SVC Balanced', 'Decision Tree', 'Decision Tree Balanced', 'Random Forest', 'Random Forest Deep Balanced', 'XGBoost']
+2026-05-13 18:44:16 - [INFO] - Threshold tuning: for each candidate, Low_Engagement threshold is searched on VALID only; TEST remains untouched until the winning validation policy is fixed.
+2026-05-13 18:44:16 - [INFO] -    -> Training Logistic Regression C1 on 105,684 rows and 12 features
+2026-05-13 18:44:16 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:17 - [INFO] -       -> Validation result for Logistic Regression C1: Recall_low=0.7625, Precision_low=0.4411, F1_low=0.5589, AUC_ROC_OVR=0.7801, threshold=0.4, F1_macro=0.4634, Balanced_acc=0.5678
+2026-05-13 18:44:17 - [INFO] -    -> Training Logistic Regression C0.3 Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:18 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:19 - [INFO] -       -> Validation result for Logistic Regression C0.3 Balanced: Recall_low=0.7625, Precision_low=0.4393, F1_low=0.5574, AUC_ROC_OVR=0.7808, threshold=0.4, F1_macro=0.4621, Balanced_acc=0.5665
+2026-05-13 18:44:19 - [INFO] -    -> Training Logistic Regression C1 Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:19 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:20 - [INFO] -       -> Validation result for Logistic Regression C1 Balanced: Recall_low=0.7623, Precision_low=0.4393, F1_low=0.5574, AUC_ROC_OVR=0.7808, threshold=0.4, F1_macro=0.4621, Balanced_acc=0.5664
+2026-05-13 18:44:20 - [INFO] -    -> Training Logistic Regression C3 Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:21 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:22 - [INFO] -       -> Validation result for Logistic Regression C3 Balanced: Recall_low=0.7623, Precision_low=0.4393, F1_low=0.5574, AUC_ROC_OVR=0.7808, threshold=0.4, F1_macro=0.4621, Balanced_acc=0.5664
+2026-05-13 18:44:22 - [INFO] -    -> Training Linear SVC on 105,684 rows and 12 features
+2026-05-13 18:44:22 - [INFO] -       Validation tuning setup: score_source=decision_function, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:23 - [INFO] -       -> Validation result for Linear SVC: Recall_low=0.6998, Precision_low=0.449, F1_low=0.5471, AUC_ROC_OVR=N/A, threshold=-0.182815, F1_macro=0.4985, Balanced_acc=0.5597
+2026-05-13 18:44:23 - [INFO] -    -> Training Linear SVC Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:23 - [INFO] -       Validation tuning setup: score_source=decision_function, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:24 - [INFO] -       -> Validation result for Linear SVC Balanced: Recall_low=0.6998, Precision_low=0.449, F1_low=0.5471, AUC_ROC_OVR=N/A, threshold=-0.182815, F1_macro=0.4985, Balanced_acc=0.5597
+2026-05-13 18:44:24 - [INFO] -    -> Training Decision Tree on 105,684 rows and 12 features
+2026-05-13 18:44:24 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:25 - [INFO] -       -> Validation result for Decision Tree: Recall_low=0.7475, Precision_low=0.4512, F1_low=0.5627, AUC_ROC_OVR=0.7901, threshold=0.3, F1_macro=0.4669, Balanced_acc=0.5807
+2026-05-13 18:44:25 - [INFO] -    -> Training Decision Tree Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:25 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:25 - [INFO] -       -> Validation result for Decision Tree Balanced: Recall_low=0.7475, Precision_low=0.4512, F1_low=0.5627, AUC_ROC_OVR=0.7901, threshold=0.3, F1_macro=0.4669, Balanced_acc=0.5807
+2026-05-13 18:44:25 - [INFO] -    -> Training Random Forest on 105,684 rows and 12 features
+2026-05-13 18:44:27 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:31 - [INFO] -       -> Validation result for Random Forest: Recall_low=0.7361, Precision_low=0.4513, F1_low=0.5595, AUC_ROC_OVR=0.7933, threshold=0.45, F1_macro=0.4741, Balanced_acc=0.5809
+2026-05-13 18:44:31 - [INFO] -    -> Training Random Forest Deep Balanced on 105,684 rows and 12 features
+2026-05-13 18:44:35 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:41 - [INFO] -       -> Validation result for Random Forest Deep Balanced: Recall_low=0.752, Precision_low=0.4516, F1_low=0.5643, AUC_ROC_OVR=0.7942, threshold=0.35, F1_macro=0.4683, Balanced_acc=0.5808
+2026-05-13 18:44:41 - [INFO] -    -> Training XGBoost on 105,684 rows and 12 features
+2026-05-13 18:44:42 - [INFO] -       Validation tuning setup: score_source=predict_proba, candidate_thresholds=20, target_metric=Low_Engagement
+2026-05-13 18:44:43 - [INFO] -       -> Validation result for XGBoost: Recall_low=0.7501, Precision_low=0.4519, F1_low=0.564, AUC_ROC_OVR=0.7952, threshold=0.35, F1_macro=0.4683, Balanced_acc=0.5809
+2026-05-13 18:44:43 - [INFO] - Saved validation comparison metrics: D:\project\Student-Engagement-Prediction\experiment\deployment_models\evaluation_metrics.csv
+2026-05-13 18:44:44 - [INFO] - Saved report-style validation table: D:\project\Student-Engagement-Prediction\experiment\deployment_models\validation_summary_table.csv
+2026-05-13 18:44:44 - [INFO] - Validation ranking
+2026-05-13 18:44:44 - [INFO] -                             Model  F1_Weighted  Predicted_Low_Rate  Actual_Low_Rate  Recall_Low_Engagement  Precision_Low_Engagement  F1_Low_Engagement AUC_ROC_OVR  F1_Macro  Balanced_Accuracy  Accuracy                 Decision_Policy  Low_Threshold      Score_Source                                                                                      Selection_Score
+2026-05-13 18:44:44 - [INFO] -            Logistic Regression C1       0.4588              0.5705             0.33                 0.7625                    0.4411             0.5589      0.7801    0.4634             0.5678    0.5622     low_threshold_predict_proba       0.400000     predict_proba               (1, 1, 0.5622, 0.5678, -0.012499999999999956, -0.2405, 0.4411, 0.5589, 0.7801, 0.4634)
+2026-05-13 18:44:44 - [INFO] - Logistic Regression C0.3 Balanced       0.4575              0.5728             0.33                 0.7625                    0.4393             0.5574      0.7808    0.4621             0.5665    0.5608     low_threshold_predict_proba       0.400000     predict_proba  (1, 1, 0.5608, 0.5665, -0.012499999999999956, -0.24279999999999996, 0.4393, 0.5574, 0.7808, 0.4621)
+2026-05-13 18:44:44 - [INFO] -   Logistic Regression C1 Balanced       0.4575              0.5726             0.33                 0.7623                    0.4393             0.5574      0.7808    0.4621             0.5664    0.5608     low_threshold_predict_proba       0.400000     predict_proba  (1, 1, 0.5608, 0.5664, -0.012299999999999978, -0.24259999999999998, 0.4393, 0.5574, 0.7808, 0.4621)
+2026-05-13 18:44:44 - [INFO] -   Logistic Regression C3 Balanced       0.4575              0.5726             0.33                 0.7623                    0.4393             0.5574      0.7808    0.4621             0.5664    0.5608     low_threshold_predict_proba       0.400000     predict_proba  (1, 1, 0.5608, 0.5664, -0.012299999999999978, -0.24259999999999998, 0.4393, 0.5574, 0.7808, 0.4621)
+2026-05-13 18:44:44 - [INFO] -                        Linear SVC       0.4949              0.5143             0.33                 0.6998                    0.4490             0.5471         N/A    0.4985             0.5597    0.5550 low_threshold_decision_function      -0.182815 decision_function        (1, 1, 0.555, 0.5597, -0.05020000000000002, -0.18429999999999996, 0.449, 0.5471, 0.0, 0.4985)
+2026-05-13 18:44:44 - [INFO] -               Linear SVC Balanced       0.4949              0.5143             0.33                 0.6998                    0.4490             0.5471         N/A    0.4985             0.5597    0.5550 low_threshold_decision_function      -0.182815 decision_function        (1, 1, 0.555, 0.5597, -0.05020000000000002, -0.18429999999999996, 0.449, 0.5471, 0.0, 0.4985)
+2026-05-13 18:44:44 - [INFO] -                     Decision Tree       0.4622              0.5467             0.33                 0.7475                    0.4512             0.5627      0.7901    0.4669             0.5807    0.5749     low_threshold_predict_proba       0.300000     predict_proba (1, 1, 0.5749, 0.5807, -0.0024999999999999467, -0.21669999999999995, 0.4512, 0.5627, 0.7901, 0.4669)
+2026-05-13 18:44:44 - [INFO] -            Decision Tree Balanced       0.4622              0.5467             0.33                 0.7475                    0.4512             0.5627      0.7901    0.4669             0.5807    0.5749     low_threshold_predict_proba       0.300000     predict_proba (1, 1, 0.5749, 0.5807, -0.0024999999999999467, -0.21669999999999995, 0.4512, 0.5627, 0.7901, 0.4669)
+2026-05-13 18:44:44 - [INFO] -                     Random Forest       0.4696              0.5382             0.33                 0.7361                    0.4513             0.5595      0.7933    0.4741             0.5809    0.5752     low_threshold_predict_proba       0.450000     predict_proba               (1, 1, 0.5752, 0.5809, -0.013900000000000023, -0.2082, 0.4513, 0.5595, 0.7933, 0.4741)
+2026-05-13 18:44:44 - [INFO] -       Random Forest Deep Balanced       0.4637              0.5495             0.33                 0.7520                    0.4516             0.5643      0.7942    0.4683             0.5808    0.5750     low_threshold_predict_proba       0.350000     predict_proba  (1, 1, 0.575, 0.5808, -0.0020000000000000018, -0.21949999999999997, 0.4516, 0.5643, 0.7942, 0.4683)
+2026-05-13 18:44:44 - [INFO] -                           XGBoost       0.4636              0.5477             0.33                 0.7501                    0.4519             0.5640      0.7952    0.4683             0.5809    0.5751     low_threshold_predict_proba       0.350000     predict_proba  (1, 1, 0.5751, 0.5809, -9.999999999998899e-05, -0.21769999999999995, 0.4519, 0.564, 0.7952, 0.4683)
+
+==========================================================================================
+VALIDATION RANKING TABLE (selection on valid only)
+==========================================================================================
+               Mô hình huấn luyện  Accuracy  Balanced Accuracy  F1 Macro  F1 Weighted  Predicted Low Rate  Actual Low Rate  Recall Low_Engagement  Precision Low_Engagement  F1 Low_Engagement
+           Logistic Regression C1    0.5622             0.5678    0.4634       0.4588              0.5705             0.33                 0.7625                    0.4411             0.5589
+Logistic Regression C0.3 Balanced    0.5608             0.5665    0.4621       0.4575              0.5728             0.33                 0.7625                    0.4393             0.5574
+  Logistic Regression C1 Balanced    0.5608             0.5664    0.4621       0.4575              0.5726             0.33                 0.7623                    0.4393             0.5574
+  Logistic Regression C3 Balanced    0.5608             0.5664    0.4621       0.4575              0.5726             0.33                 0.7623                    0.4393             0.5574
+      Random Forest Deep Balanced    0.5750             0.5808    0.4683       0.4637              0.5495             0.33                 0.7520                    0.4516             0.5643
+                          XGBoost    0.5751             0.5809    0.4683       0.4636              0.5477             0.33                 0.7501                    0.4519             0.5640
+                    Decision Tree    0.5749             0.5807    0.4669       0.4622              0.5467             0.33                 0.7475                    0.4512             0.5627
+           Decision Tree Balanced    0.5749             0.5807    0.4669       0.4622              0.5467             0.33                 0.7475                    0.4512             0.5627
+                    Random Forest    0.5752             0.5809    0.4741       0.4696              0.5382             0.33                 0.7361                    0.4513             0.5595
+                       Linear SVC    0.5550             0.5597    0.4985       0.4949              0.5143             0.33                 0.6998                    0.4490             0.5471
+              Linear SVC Balanced    0.5550             0.5597    0.4985       0.4949              0.5143             0.33                 0.6998                    0.4490             0.5471
+==========================================================================================
+
+2026-05-13 18:44:44 - [INFO] - Selected from VALID only: model=Random Forest, policy=low_threshold_predict_proba, low_threshold=0.45, score_source=predict_proba
+2026-05-13 18:44:44 - [INFO] - Selected validation metrics: Recall_Low=0.7361, Precision_Low=0.4513, F1_Low=0.5595, AUC_ROC_OVR=0.7933, F1_Macro=0.4741, Balanced_Accuracy=0.5809, Accuracy=0.5752
+2026-05-13 18:44:44 - [INFO] - Winning algorithm: Random Forest
+2026-05-13 18:44:44 - [INFO] - Top-ranked validation candidate: {'Model': 'Random Forest', 'F1_Weighted': 0.4696, 'Predicted_Low_Rate': 0.5382, 'Actual_Low_Rate': 0.33, 'Recall_Low_Engagement': 0.7361, 'Precision_Low_Engagement': 0.4513, 'F1_Low_Engagement': 0.5595, 'AUC_ROC_OVR': 0.7933, 'F1_Macro': 0.4741, 'Balanced_Accuracy': 0.5809, 'Accuracy': 0.5752, 'Decision_Policy': 'low_threshold_predict_proba', 'Low_Threshold': 0.45, 'Score_Source': 'predict_proba', 'Selection_Score': (1, 1, 0.5752, 0.5809, -0.013900000000000023, -0.2082, 0.4513, 0.5595, 0.7933, 0.4741)}
+2026-05-13 18:44:44 - [INFO] - [3/4] Running final held-out test evaluation for the selected model...
+2026-05-13 18:44:44 - [INFO] -    -> Test metrics: {'Accuracy': 0.578, 'Balanced_Accuracy': 0.5837, 'F1_Macro': 0.4777, 'F1_Weighted': 0.4732, 'Precision_Macro': 0.5709, 'Recall_Macro': 0.5837, 'Precision_Low_Engagement': np.float64(0.451), 'Recall_Low_Engagement': np.float64(0.7417), 'F1_Low_Engagement': np.float64(0.5609), 'Actual_Low_Rate': 0.33, 'Predicted_Low_Rate': 0.5427, 'AUC_ROC_OVR': 0.7945, 'Model': 'Random Forest', 'Decision_Policy': 'low_threshold_predict_proba', 'Low_Threshold': 0.45, 'Score_Source': 'predict_proba'}
+2026-05-13 18:44:44 - [INFO] - FINAL TEST RESULT (held-out, not used for selection): model=Random Forest, Accuracy=0.578, Balanced_Accuracy=0.5837, F1_Macro=0.4777, Precision_Low=0.451, Recall_Low=0.7417, F1_Low=0.5609, AUC_ROC_OVR=0.7945
+2026-05-13 18:44:44 - [INFO] - Final test metrics
+2026-05-13 18:44:44 - [INFO] -  Accuracy  Balanced_Accuracy  F1_Macro  F1_Weighted  Precision_Macro  Recall_Macro  Precision_Low_Engagement  Recall_Low_Engagement  F1_Low_Engagement  Actual_Low_Rate  Predicted_Low_Rate  AUC_ROC_OVR         Model             Decision_Policy  Low_Threshold  Score_Source
+2026-05-13 18:44:44 - [INFO] -     0.578             0.5837    0.4777       0.4732           0.5709        0.5837                     0.451                 0.7417             0.5609             0.33              0.5427       0.7945 Random Forest low_threshold_predict_proba           0.45 predict_proba
+2026-05-13 18:44:44 - [INFO] -    -> Saved validation/test reports and model metadata
+2026-05-13 18:44:44 - [INFO] - [4/4] Packaging deployment bundle...
+2026-05-13 18:44:45 - [INFO] -    -> Saved best model: D:\project\Student-Engagement-Prediction\experiment\deployment_models\best_model_4w.pkl
+2026-05-13 18:44:45 - [INFO] -    -> Saved deployment bundle: D:\project\Student-Engagement-Prediction\experiment\deployment_models\deployment_bundle.pkl
+2026-05-13 18:44:45 - [INFO] - STAGE 4 COMPLETED.
+2026-05-13 18:44:45 - [INFO] - Deployment bundle saved at: D:\project\Student-Engagement-Prediction\experiment\deployment_models\deployment_bundle.pkl
+2026-05-13 18:44:45 - [INFO] - Model metadata saved at: D:\project\Student-Engagement-Prediction\experiment\deployment_models\best_model_metadata.json
+2026-05-13 18:44:45 - [INFO] - Output artifacts:
+2026-05-13 18:44:45 - [INFO] -   Validation comparison: D:\project\Student-Engagement-Prediction\experiment\deployment_models\evaluation_metrics.csv
+2026-05-13 18:44:45 - [INFO] -   Validation report table: D:\project\Student-Engagement-Prediction\experiment\deployment_models\validation_summary_table.csv
+2026-05-13 18:44:45 - [INFO] -   Final test metrics: D:\project\Student-Engagement-Prediction\experiment\deployment_models\final_test_metrics.csv
+2026-05-13 18:44:45 - [INFO] -   Best-model valid report: D:\project\Student-Engagement-Prediction\experiment\deployment_models\best_model_valid_classification_report.csv
+2026-05-13 18:44:45 - [INFO] -   Best-model test report: D:\project\Student-Engagement-Prediction\experiment\deployment_models\best_model_test_classification_report.csv
+2026-05-13 18:44:45 - [INFO] -   Test confusion matrix: D:\project\Student-Engagement-Prediction\experiment\output_images_4w\CM_TEST_Random_Forest.png
+2026-05-13 18:44:45 - [INFO] -   Stage 4 log: D:\project\Student-Engagement-Prediction\experiment\deployment_models\stage_4_training_eval.log
+--------------------------------------------------------------------------------
+STAGE 4 SELECTION SUMMARY
+Selected model: Random Forest (RandomForestClassifier)
+Selection split: valid
+Decision policy: low_threshold_predict_proba
+Low threshold: 0.45
+Validation metrics used for selection:
+  Recall_Low=0.7361, Precision_Low=0.4513, F1_Low=0.5595, AUC_ROC_OVR=0.7933, F1_Macro=0.4741, Balanced_Accuracy=0.5809, Accuracy=0.5752
+Final held-out test metrics:
+  Recall_Low=0.7417, Precision_Low=0.451, F1_Low=0.5609, AUC_ROC_OVR=0.7945, F1_Macro=0.4777, Balanced_Accuracy=0.5837, Accuracy=0.578, Decision_Policy=low_threshold_predict_proba
+Validation comparison CSV: D:\project\Student-Engagement-Prediction\experiment\deployment_models\evaluation_metrics.csv
+Final test metrics CSV: D:\project\Student-Engagement-Prediction\experiment\deployment_models\final_test_metrics.csv
+Detailed stage 4 log: D:\project\Student-Engagement-Prediction\experiment\deployment_models\stage_4_training_eval.log
